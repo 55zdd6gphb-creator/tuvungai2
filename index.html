@@ -3,425 +3,748 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vocab Master iOS</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@0.400.0/dist/umd/lucide.min.js"></script>
+    <title>VocabMaster Hub - GitHub Edition</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        /* Hiệu ứng lật 3D cho Flashcard */
         .perspective-1000 { perspective: 1000px; }
         .transform-style-3d { transform-style: preserve-3d; }
         .backface-hidden { backface-visibility: hidden; }
         .rotate-y-180 { transform: rotateY(180deg); }
+        
+        /* CSS Rung lắc khi trả lời sai game */
         @keyframes shake {
             0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-4px); }
-            75% { transform: translateX(4px); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
         }
         .animate-shake { animation: shake 0.2s ease-in-out infinite; }
+        
+        /* Tối ưu giao diện vừa vặn màn hình (Viewport-fit) */
+        body {
+            overflow-x: hidden;
+            background: #0f172a;
+            color: #f8fafc;
+        }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans h-screen w-screen overflow-hidden m-0 p-0">
+<body class="h-screen flex flex-col justify-between antialiased selection:bg-indigo-500 selection:text-white">
 
-    <div class="w-full h-full flex">
-        <nav class="w-16 md:w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between p-2 md:p-4 shrink-0">
-            <div>
-                <div class="flex items-center gap-3 py-4 mb-4 border-b border-slate-800 justify-center md:justify-start">
-                    <i data-lucide="sparkles" class="text-indigo-400 w-6 h-6 md:w-8 md:h-8"></i>
-                    <h1 class="hidden md:block font-black text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">VOCAB MASTER</h1>
-                </div>
-                <div class="space-y-2">
-                    <button onclick="switchMode('deep-dive')" id="btn-deep-dive" class="w-full flex items-center justify-center md:justify-start gap-3 p-3 rounded-xl text-sm font-medium bg-indigo-600 text-white">
-                        <i data-lucide="book-open"></i><span class="hidden md:inline">Deep Dive</span>
-                    </button>
-                    <button onclick="switchMode('flashcard')" id="btn-flashcard" class="w-full flex items-center justify-center md:justify-start gap-3 p-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-900">
-                        <i data-lucide="layers"></i><span class="hidden md:inline">Flashcard 3D</span>
-                    </button>
-                    <button onclick="switchMode('quiz')" id="btn-quiz" class="w-full flex items-center justify-center md:justify-start gap-3 p-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-900">
-                        <i data-lucide="award"></i><span class="hidden md:inline">Trắc nghiệm</span>
-                    </button>
-                    <button onclick="switchMode('block-blast')" id="btn-block-blast" class="w-full flex items-center justify-center md:justify-start gap-3 p-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-900">
-                        <i data-lucide="grid"></i><span class="hidden md:inline">Block Blast</span>
-                    </button>
-                </div>
-            </div>
-            <button onclick="switchMode('manage')" id="btn-manage" class="w-full flex items-center justify-center gap-2 p-2.5 border border-slate-800 rounded-xl text-xs font-semibold bg-slate-900 text-slate-300">
-                <i data-lucide="plus-circle"></i><span class="hidden md:inline" id="lbl-count">Quản Lý</span>
-            </button>
-        </nav>
+    <div id="root" class="h-full w-full flex flex-col"></div>
 
-        <main id="main-content" class="flex-1 flex flex-col p-4 md:p-6 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/30">
-            </main>
-    </div>
+    <script type="text/babel">
+        // Giải nén các Hooks từ React toàn cục
+        const { useState, useEffect, useMemo } = React;
 
-    <script>
-        // DỮ LIỆU TỪ VỰNG GỐC CỦA BẠN
-        const defaultVocab = [
-          { id: 1, word: "tough", definitionVn: "Khó khăn, cứng rắn, bền bỉ", definitionEn: "Strong enough to withstand adverse conditions or rough handling", example: "The marathon was tough, but she finished it.", synonyms: "resilient, hard", antonyms: "weak, delicate", mnemonic: "Hãy nhớ đến 'thịt dai' (tough meat) cần sự bền bỉ để nhai!" },
-          { id: 2, word: "segregation", definitionVn: "Sự phân biệt đối xử, sự chia tách", definitionEn: "The action or state of setting someone or something apart from others", example: "The civil rights movement fought against racial segregation.", synonyms: "separation, isolation", antonyms: "integration, unification", mnemonic: "Segregation có gốc 'segre-' nghĩa là tách biệt ra." },
-          { id: 3, word: "lead the way", definitionVn: "Dẫn đường, tiên phong", definitionEn: "Go ahead of others to show the way or be a pioneer", example: "Our company aims to lead the way in green technology.", synonyms: "pioneer, guide", antonyms: "follow", mnemonic: "Lead (dẫn dắt) + The way (con đường) = Người mở đường." },
-          { id: 4, word: "vulnerable", definitionVn: "Dễ bị tổn thương", definitionEn: "Susceptible to physical or emotional attack or harm", example: "Children are the most vulnerable members of society.", synonyms: "helpless, exposed", antonyms: "resilient, protected", mnemonic: "Vulnerable giống như một 'vết thương' dễ bị chạm vào." },
-          { id: 5, word: "delicate", definitionVn: "Mỏng manh, tinh tế, dễ vỡ", definitionEn: "Very fine in texture or structure; easily broken or damaged", example: "The antique vase is extremely delicate.", synonyms: "fragile, subtle", antonyms: "tough, robust", mnemonic: "Đọc gần giống 'đẻ liền hai cái' -> rất mỏng manh và cần chăm sóc cân thận." },
-          { id: 6, word: "resilient", definitionVn: "Kiên cường, có khả năng phục hồi nhanh", definitionEn: "Able to withstand or recover quickly from difficult conditions", example: "The local economy proved remarkably resilient.", synonyms: "tough, bouncy", antonyms: "vulnerable, fragile", mnemonic: "Re (lại) + silent (im lặng) -> Gặp biến cố chỉ im lặng rồi tự đứng dậy phục hồi." },
-          { id: 7, word: "continuous collaboration", definitionVn: "Sự cộng tác liên tục", definitionEn: "The act of working together with someone constantly over time", example: "Success relies on continuous collaboration between teams.", synonyms: "constant teamwork", antonyms: "isolation", mnemonic: "Continuous (liên tục) + Collaboration (cộng tác)." },
-          { id: 8, word: "collective", definitionVn: "Tập thể, chung", definitionEn: "Done by people acting as a group; referring to all members", example: "It was a collective decision by all board members.", synonyms: "joint, shared", antonyms: "individual", mnemonic: "Giống từ Collect (thu thập) -> gom lại thành một tập thể." },
-          { id: 9, word: "detect", definitionVn: "Phát hiện, dò tìm", definitionEn: "Discover or identify the presence or existence of something", example: "The security system can detect any unauthorized entry.", synonyms: "discover, find", antonyms: "hide, ignore", mnemonic: "Thám tử (detective) là người đi 'detect' các manh mối." },
-          { id: 10, word: "freeze", definitionVn: "Đóng băng", definitionEn: "Turn into ice or another solid as a result of extreme cold", example: "Water will freeze at 0 degrees Celsius.", synonyms: "solidify", antonyms: "melt", mnemonic: "Tủ đông trong nhà gọi là freezer." },
-          { id: 11, word: "melt", definitionVn: "Tan chảy", definitionEn: "Make or become liquefied by heating", example: "The ice cream began to melt in the hot sun.", synonyms: "dissolve", antonyms: "freeze", mnemonic: "Melt khiến ta nghĩ đến kẹo chocolate 'tan chảy' trong miệng." },
-          { id: 12, word: "condense", definitionVn: "Ngưng tụ, làm đặc lại", definitionEn: "Change from a gas to a liquid; express in fewer words", example: "Steam condenses into water when it cools down.", synonyms: "compress, thicken", antonyms: "evaporate", mnemonic: "Sữa đặc cô đặc thường gọi là 'condensed milk'." },
-          { id: 13, word: "evaporate", definitionVn: "Bay hơi, bốc hơi", definitionEn: "Turn from liquid into vapor", example: "The puddles of water evaporate quickly under the sun.", synonyms: "vanish, vaporize", antonyms: "condense", mnemonic: "E- (ra ngoài) + vapor (hơi nước) -> hơi nước bay ra ngoài." },
-          { id: 14, word: "concerning symptom", definitionVn: "Triệu chứng đáng lo ngại", definitionEn: "A physical or mental feature indicating a condition that causes anxiety", example: "A chronic cough is a concerning symptom that requires a doctor visit.", synonyms: "alarming sign", antonyms: "reassuring sign", mnemonic: "Concerning (đáng lo) + Symptom (triệu chứng bệnh)." },
-          { id: 15, word: "thrive", definitionVn: "Phát triển thịnh vượng, khoẻ mạnh", definitionEn: "Grow or develop well or vigorously", example: "The plants thrive in this warm, sunny climate.", synonyms: "flourish, prosper", antonyms: "fail, wither", mnemonic: "Thrive nghe gần giống 'Strive' (phấn đấu) để 'thịnh vượng'." },
-          { id: 16, word: "carry on", definitionVn: "Tiếp tục làm gì đó", definitionEn: "Continue an activity or task; keep doing something", example: "Please carry on with your work while I am away.", synonyms: "continue, keep doing", antonyms: "stop, quit", mnemonic: "Xách (carry) nó lên và đi tiếp (on) -> tiếp tục." },
-          { id: 17, word: "check up on", definitionVn: "Kiểm tra xem ai đó đang làm đúng việc không", definitionEn: "Make sure that someone is doing what they should be doing", example: "My boss likes to check up on us every afternoon.", synonyms: "monitor, inspect", antonyms: "ignore", mnemonic: "Check (kiểm tra) + Up on (phía trên) -> giám sát từ trên xuống." },
-          { id: 18, word: "keep one's fingers on the pulse", definitionVn: "Nắm bắt kịp thời tình hình/xu hướng", definitionEn: "Keep track of or remain aware of the latest trends or developments", example: "As a marketer, you must keep your fingers on the pulse.", synonyms: "keep track of, stay updated", antonyms: "out of touch", mnemonic: "Đặt tay lên mạch đập (pulse) để biết tim đập ra sao -> bắt kịp nhịp độ." },
-          { id: 19, word: "assess", definitionVn: "Đánh giá, ước định", definitionEn: "Evaluate or estimate the nature, ability, or quality of", example: "We need to assess the risks before making a decision.", synonyms: "evaluate, appraise", antonyms: "guess", mnemonic: "Học sinh làm bài 'assignment' để giáo viên 'assess' (đánh giá)." },
-          { id: 20, word: "insight", definitionVn: "Cái nhìn sâu sắc, sự hiểu biết thấu đáo", definitionEn: "A deep understanding of a person or thing", example: "The research provides valuable insight into consumer behavior.", synonyms: "understanding, perception", antonyms: "ignorance", mnemonic: "In (vào trong) + Sight (tầm nhìn) -> nhìn thấu vào bên trong bản chất." },
-          { id: 21, word: "hand in hand", definitionVn: "Song hành, gắn liền với nhau", definitionEn: "Closely associated; together", example: "Wealth and power often go hand in hand.", synonyms: "together, jointly", antonyms: "separately", mnemonic: "Tay trong tay -> Luôn đi cùng nhau." },
-          { id: 22, word: "indicator", definitionVn: "Chỉ số, dấu hiệu", definitionEn: "A trend or fact that indicates the state or level of something", example: "Economic growth is a key indicator of a country's health.", synonyms: "sign, signal", antonyms: "counter-evidence", mnemonic: "Xem kim chỉ mét ở xe máy/ô tô chính là các indicator." },
-          { id: 23, word: "fluctuation", definitionVn: "Sự biến động, dao động", definitionEn: "An irregular rising and falling in number or amount", example: "The fluctuation in gold prices makes investors nervous.", synonyms: "variation, shift", antonyms: "stability, constancy", mnemonic: "Đọc giống 'phập phồng' -> lúc lên lúc xuống không ổn định." },
-          { id: 24, word: "safeguard", definitionVn: "Bảo vệ, che chở", definitionEn: "Protect from harm or damage with an appropriate measure", example: "The law was passed to safeguard consumer rights.", synonyms: "protect, defend", antonyms: "endanger, imperil", mnemonic: "Safe (an toàn) + Guard (bảo vệ) -> lá chắn bảo vệ." },
-          { id: 25, word: "cherish", definitionVn: "Trân trọng, yêu thương", definitionEn: "Hold something dear; treat with affection and tenderness", example: "I will always cherish the memories of our childhood.", synonyms: "treasure, value", antonyms: "neglect, despise", mnemonic: "Gần giống 'cherry' -> quả cherry ngọt ngào cần được nâng niu." },
-          { id: 26, word: "symphony", definitionVn: "Bản nhạc giao hưởng", definitionEn: "An elaborate musical composition for full orchestra", example: "Beethoven's Fifth Symphony is globally famous.", synonyms: "harmony, orchestra", antonyms: "cacophony", mnemonic: "Sym (cùng nhau) + phony (âm thanh) -> phối hợp âm thanh lại." },
-          { id: 27, word: "unify", definitionVn: "Thống nhất, hợp nhất", definitionEn: "Make or become united, uniform, or whole", example: "The new leader hopes to unify the split country.", synonyms: "unite, merge", antonyms: "divide, segregate", mnemonic: "Uni- có nghĩa là một (như trong từ uniform, universe)." },
-          { id: 28, word: "remarkable", definitionVn: "Đáng chú ý, xuất sắc", definitionEn: "Worthy of attention; striking or extraordinary", example: "She has made a remarkable recovery from her illness.", synonyms: "extraordinary, outstanding", antonyms: "ordinary, average", mnemonic: "Remark (nhận xét) + able (có thể) -> xuất sắc tới mức ai cũng phải bàn tán." },
-          { id: 29, word: "enhance", definitionVn: "Nâng cao, cải thiện", definitionEn: "Intensify, increase, or further improve the quality or value of", example: "You can enhance your skills by practicing every day.", synonyms: "improve, boost", antonyms: "worsen, diminish", mnemonic: "Thêm 'hương vị' (enhance) vào món ăn để làm nó ngon hơn." },
-          { id: 30, word: "carbon footprint", definitionVn: "Vết carbon, lượng khí thải carbon", definitionEn: "The amount of carbon dioxide released into the atmosphere due to one's activities", example: "We can reduce our carbon footprint by cycling to work.", synonyms: "CO2 emission", antonyms: "eco-friendly score", mnemonic: "Dấu chân (footprint) làm bằng than khí thải để lại trên Trái Đất." },
-          { id: 31, word: "processed foods", definitionVn: "Thực phẩm đóng hộp/đã qua chế biến", definitionEn: "Foods that have been altered from their natural state for safety or convenience", example: "Processed foods are often high in salt and preservatives.", synonyms: "packaged food", antonyms: "fresh foods", mnemonic: "Process (quy trình) + Foods -> thức ăn công nghiệp đi qua nhà máy." }
+        // Bảng dữ liệu chuẩn hóa 100% từ danh sách của bạn
+        const defaultVocabulary = [
+          { id: 1, word: "tough", type: "adj", defEN: "strong and durable; difficult to deal with", defVI: "bền bỉ, dai, cứng rắn, khó khăn", example: "The meat was tough, but the leather boots were even tougher.", syn: "hardy, resilient", ant: "tender, fragile", hint: "Đọc giống 'Tập' -> Tập luyện nhiều thì cơ thể sẽ bền bỉ, cứng rắn." },
+          { id: 2, word: "segregation", type: "noun", defEN: "the action or state of setting someone or something apart from others", defVI: "sự phân biệt chủng tộc, sự chia tách", example: "The civil rights movement fought to end racial segregation.", syn: "separation, isolation", ant: "integration, unification", hint: "Seg-re-ga-tion -> Gần giống 'Xe rác ga sần' -> Xe chở rác phải bị cô lập, tách biệt ra ngoài." },
+          { id: 3, word: "lead the way", type: "idiom", defEN: "to be a pioneer or leader in a particular field or path", defVI: "dẫn đường, tiên phong", example: "Our tech company aims to lead the way in green energy solutions.", syn: "pioneer, guide, head", ant: "follow, lag behind", hint: "Lead (Lãnh đạo) + The way (Con đường) -> Người đi đầu vạch ra con đường cho người khác theo." },
+          { id: 4, word: "vulnerable", type: "adj", defEN: "susceptible to physical or emotional attack or harm", defVI: "dễ bị tổn thương, nguy hiểm", example: "Without secure encryption, your personal data is highly vulnerable.", syn: "exposed, defenseless", ant: "protected, invulnerable", hint: "Vulnerable -> Vần nơ rỡ bồ -> Dang nơ trêu bồ rất dễ bị bồ tẩn -> Dễ bị tổn thương." },
+          { id: 5, word: "delicate", type: "adj", defEN: "very fine in texture or structure; easily broken or damaged", defVI: "mỏng manh, tinh tế, nhạy cảm", example: "The antique vase is extremely delicate, so please handle it with care.", syn: "fragile, dainty", ant: "robust, sturdy", hint: "Delicate -> 'Để ly cát' -> Để cái ly bằng cát thì cấu trúc của nó vô cùng mỏng manh, dễ vỡ." },
+          { id: 6, word: "resilient", type: "adj", defEN: "able to withstand or recover quickly from difficult conditions", defVI: "kiên cường, đàn hồi, mau phục hồi", example: "The local economy proved resilient despite the global crisis.", syn: "tough, bouncy, adaptable", ant: "fragile, vulnerable", hint: "Resilient -> 'Rê dưa lên' -> Quả dưa hấu dù bị kéo rê lên dốc vẫn nguyên vẹn -> Rất kiên cường." },
+          { id: 7, word: "continuous collaboration", type: "noun phr", defEN: "uninterrupted working together of parties to achieve a goal", defVI: "sự cộng tác liên tục", example: "The success of this open-source project relies on continuous collaboration.", syn: "ongoing teamwork", ant: "isolated work", hint: "Continuous (Liên tục) + Collaboration (Cộng tác, hợp tác)." },
+          { id: 8, word: "collective", type: "adj/noun", defEN: "done by people acting as a group; referring to all members of a group", defVI: "tập thể, chung", example: "It was a collective decision made by all members of the board.", syn: "joint, combined, communal", ant: "individual, personal", hint: "Gốc từ giống Collect (thu thập) -> Gom mọi cá thể lại tạo thành một khối tập thể." },
+          { id: 9, word: "detect", type: "verb", defEN: "to discover or identify the presence or existence of something", defVI: "phát hiện, dò tìm, nhận ra", example: "The security system can detect any unauthorized entry.", syn: "discover, notice, spot", ant: "ignore, overlook", hint: "Liên tưởng tới Detective (Thám tử) -> Công việc của thám tử là đi dò tìm, phát hiện manh mối." },
+          { id: 10, word: "freeze", type: "verb", defEN: "turn into ice or another solid as a result of extreme cold", defVI: "đóng băng, đông cứng", example: "Water will freeze instantly under these extreme laboratory conditions.", syn: "solidify", ant: "melt", hint: "Freeze -> 'Phờ-ri-zơ' (Tủ freezer dùng để cấp đông thức ăn)." },
+          { id: 11, word: "melt", type: "verb", defEN: "make or become liquefied by heating", defVI: "tan chảy", example: "The ice began to melt as soon as the sun came out.", syn: "dissolve, liquefy", ant: "freeze", hint: "Melt -> Đọc giống 'Mệt' -> Khi cơ thể mệt rã rời, cảm giác như cơ bắp đang tan chảy ra." },
+          { id: 12, word: "condense", type: "verb", defEN: "change from a gas or vapor to a liquid; make denser", defVI: "ngưng tụ, cô đặc lại", example: "Steam condenses into water droplets when it hits a cold surface.", syn: "compress, concentrate", ant: "evaporate", hint: "Condensed milk chính là sữa đặc (ví dụ: sữa ông thọ) -> Sữa được làm cô đặc lại." },
+          { id: 13, word: "evaporate", type: "verb", defEN: "turn from liquid into vapor", defVI: "bay hơi, bốc hơi", example: "The small puddles of rain water evaporated quickly under the hot sun.", syn: "vaporize, vanish", ant: "condense", hint: "Có chứa từ gốc 'Vapor' nghĩa là hơi nước -> Biến thành hơi nước = bay hơi." },
+          { id: 14, word: "concerning symptom", type: "noun phr", defEN: "a physical or mental sign indicating a medical condition that causes anxiety", defVI: "triệu chứng đáng lo ngại", example: "A chronic short of breath is a concerning symptom you should check.", syn: "worrying sign", ant: "reassuring sign", hint: "Concerning (Đáng lo ngại, liên quan) + Symptom (Triệu chứng bệnh)." },
+          { id: 15, word: "thrive", type: "verb", defEN: "to grow or develop well, to flourish or prosper vigorous", defVI: "phát triển mạnh mẽ, thịnh vượng", example: "Our online business continues to thrive in the modern digital market.", syn: "flourish, prosper, bloom", ant: "fail, wither, decline", hint: "Thrive -> Đọc lái thành 'Thờ rai' -> Chăm chỉ làm việc và có đức tin thì sẽ phát triển thịnh vượng." },
+          { id: 16, word: "carry on", type: "phrasal v", defEN: "to continue doing something; keep + V_ing", defVI: "tiếp tục hành động gì đó", example: "Even when things get tough, you must carry on with your study.", syn: "continue, maintain, proceed", ant: "stop, halt, quit", hint: "Carry (mang vác) + On (tiếp tục hành trình) -> Vẫn tiếp tục gánh vác, không bỏ cuộc." },
+          { id: 17, word: "check up on", type: "phrasal v", defEN: "to make sure that someone is doing what they should be doing or is safe", defVI: "kiểm tra xem ai đó đang làm gì/ổn không", example: "My parents always call to check up on me every weekend.", syn: "inspect, monitor, track", ant: "neglect, ignore", hint: "Check (Kiểm tra) + Up on (Sát sao phía trên) -> Theo sát để kiểm tra tiến độ/sức khỏe." },
+          { id: 18, word: "keep one's fingers on the pulse", type: "idiom", defEN: "to monitor current trends; keep track of latest developments", defVI: "nắm bắt kịp thời các xu hướng/thông tin mới nhất", example: "As a marketer, she always keeps her fingers on the pulse of social media.", syn: "stay informed, keep track", ant: "be out of touch", hint: "Đặt ngón tay (fingers) lên mạch đập (pulse) của cổ tay -> Theo dõi nhịp đập xã hội liên tục." },
+          { id: 19, word: "assess", type: "verb", defEN: "to evaluate or estimate the nature, ability, or quality of something", defVI: "đánh giá, định mức", example: "We need to assess the environmental impact before building the factory.", syn: "evaluate, appraise, judge", ant: "guess, ignore", hint: "Assess -> Âm đọc giống 'As-ses' -> Ngồi đặt mông lên ghế suy ngẫm để đưa ra ĐÁNH GIÁ." },
+          { id: 20, word: "insight", type: "noun", defEN: "a deep, clear, and accurate understanding of a specific thing", defVI: "sự hiểu biết sâu sắc, cái nhìn thấu đáo", example: "The market research provides valuable insights into customer behavior.", syn: "understanding, wisdom, vision", ant: "ignorance, blindness", hint: "In (Vào trong) + Sight (Tầm nhìn) -> Nhìn thấu vào tận sâu bản chất bên trong." },
+          { id: 21, word: "hand in hand", type: "idiom", defEN: "closely associated; working together in harmony toward a common goal", defVI: "gắn liền với nhau, tay trong tay, song hành", example: "Economic growth and environmental protection must go hand in hand.", syn: "together, jointly, linked", ant: "separately, apart", hint: "Tay trong tay -> Biểu trưng của sự gắn kết chặt chẽ, luôn đi kèm song hành." },
+          { id: 22, word: "indicator", type: "noun", defEN: "a trend, signal, or sign that shows the condition or state of something", defVI: "chỉ số, dấu hiệu biểu thị", example: "High unemployment is a clear indicator of an economic downturn.", syn: "sign, signal, gauge, mark", ant: "counter-sign", hint: "Trong xe máy/ô tô, đèn xi-nhan báo rẽ chính là các 'indicators' (vật chỉ đường)." },
+          { id: 23, word: "fluctuation", type: "noun", defEN: "an irregular rising and falling in number, amount, or stability", defVI: "sự biến động, dao động thất thường", example: "Wild fluctuation in stock prices can scare away new investors.", syn: "variation, shift, wave", ant: "stability, constancy", hint: "Fluctuation -> 'Phờ lúc chu du' -> Lúc lên voi lúc xuống chó, thay đổi liên tục." },
+          { id: 24, word: "safeguard", type: "verb/noun", defEN: "to protect something from harm or damage with proactive measures", defVI: "bảo vệ, che chắn, biện pháp bảo vệ", example: "The new law is designed to safeguard the privacy rights of internet users.", syn: "protect, defend, shield", ant: "endanger, harm, imperil", hint: "Safe (An toàn) + Guard (Vệ sĩ/Bảo vệ) -> Vòng vây bảo vệ tuyệt đối an toàn." },
+          { id: 25, word: "cherish", type: "verb", defEN: "protect and care for someone or something lovingly and deeply", defVI: "trân trọng, yêu thương, nâng niu, ấp ủ", example: "I will always cherish the beautiful memories we shared together.", syn: "treasure, value, hold dear", ant: "despise, neglect, ignore", hint: "Cherish -> Nghe như 'Quả Cherry' -> Trái cây đắt đỏ quý hiếm nên phải rất nâng niu, trân trọng." },
+          { id: 26, word: "symphony", type: "noun", defEN: "an elaborate musical composition for a full grand orchestra", defVI: "bản nhạc giao hưởng", example: "He composed a magnificent symphony inspired by nature.", syn: "harmony, orchestra piece", ant: "cacophony", hint: "Sym (Cùng nhau, đồng điệu) + Phony (Âm thanh) -> Nhiều âm thanh hòa quyện thành giao hưởng." },
+          { id: 27, word: "unify", type: "verb", defEN: "make or become united, uniform, or a single whole", defVI: "thống nhất, hợp nhất, đồng nhất", example: "The leader managed to unify the opposing political factions.", syn: "unite, merge, combine", ant: "divide, separate, split", hint: "Uni (Một - như từ Uniform) + fy (Biến đổi) -> Biến tất cả thành một thực thể thống nhất." },
+          { id: 28, word: "remarkable", type: "adj", defEN: "worthy of attention; striking, extraordinary, or excellent", defVI: "đáng chú ý, xuất sắc, khác thường", example: "She showed remarkable talent for mathematics at a very young age.", syn: "extraordinary, notable, superb", ant: "ordinary, common, mediocre", hint: "Re-mark-able -> Gốc từ 'Mark' (đánh dấu) -> Có khả năng/đáng giá để đánh dấu lại vì quá xuất sắc." },
+          { id: 29, word: "enhance", type: "verb", defEN: "intensify, increase, or further improve the quality, value, or power of", defVI: "nâng cao, tăng cường, cải thiện", example: "You can enhance the flavor of the soup by adding some fresh herbs.", syn: "improve, boost, upgrade", ant: "diminish, degrade, damage", hint: "Enhance -> Gần giống 'In hình lên' -> In thêm hình ảnh đẹp lên áo giúp tăng giá trị cái áo." },
+          { id: 30, word: "carbon footprint", type: "noun", defEN: "the total amount of greenhouse gases caused by an individual or event", defVI: "dấu chân carbon (lượng khí thải carbon cá nhân)", example: "Switching to public transport is an effective way to reduce your carbon footprint.", syn: "CO2 emissions, carbon impact", ant: "eco-friendly asset", hint: "Carbon (Khí thải độc hại) + Footprint (Dấu chân) -> Vết tích hủy hoại môi trường ta để lại." },
+          { id: 31, word: "processed foods", type: "noun", defEN: "food items that have been altered from natural state for safety/convenience", defVI: "thực phẩm đóng hộp, thực phẩm chế biến sẵn", example: "Processed foods are usually high in chemicals, salt, and fat.", syn: "convenience food, canned food", ant: "whole foods, fresh products", hint: "Processed (Đã qua xử lý nhà máy) + Foods (Thức ăn)." }
         ];
 
-        let vocabList = JSON.parse(localStorage.getItem('custom_vocab_ios')) || defaultVocab;
-        let currentMode = 'deep-dive';
-        let currentIndex = 0;
-        let isFlipped = false;
+        // Thành phần biểu tượng của Lucide
+        const Icon = ({ name, className = "w-5 h-5", ...props }) => {
+            const LucideIcon = lucide[name];
+            if (!LucideIcon) return null;
+            return <LucideIcon className={className} {...props} />;
+        };
 
-        // Lưu dữ liệu vào LocalStorage
-        function saveToStorage() {
-            localStorage.setItem('custom_vocab_ios', JSON.stringify(vocabList));
-            document.getElementById('lbl-count').innerText = `Quản Lý (${vocabList.length})`;
-        }
+        function App() {
+            const [vocabList, setVocabList] = useState(() => {
+                const saved = localStorage.getItem('hub_vocab_data_2026');
+                return saved ? JSON.parse(saved) : defaultVocabulary;
+            });
 
-        // Chuyển Tab Chế Độ
-        function switchMode(mode) {
-            currentMode = mode;
-            currentIndex = 0;
-            isFlipped = false;
+            // State Điều hướng & Tìm kiếm
+            const [currentTab, setCurrentTab] = useState('deep-dive'); // deep-dive, flashcard, quiz, block-blast, manage
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [searchQuery, setSearchQuery] = useState('');
 
-            // Đổi trạng thái active nút bấm sidebar
-            ['deep-dive', 'flashcard', 'quiz', 'block-blast', 'manage'].forEach(m => {
-                const btn = document.getElementById(`btn-${m}`);
-                if (m === mode) {
-                    btn.className = "w-full flex items-center justify-center md:justify-start gap-3 p-3 rounded-xl text-sm font-medium bg-indigo-600 text-white";
+            // State Flashcard
+            const [isFlipped, setIsFlipped] = useState(false);
+
+            // State Trắc nghiệm (Quiz)
+            const [quizScore, setQuizScore] = useState(0);
+            const [quizStep, setQuizStep] = useState(0);
+            const [quizQuestions, setQuizQuestions] = useState([]);
+            const [selectedAnswer, setSelectedAnswer] = useState(null);
+            const [quizFinished, setQuizFinished] = useState(false);
+
+            // State Minigame Block Blast
+            const [gameBlocks, setGameBlocks] = useState([]);
+            const [selectedBlock, setSelectedBlock] = useState(null);
+            const [gameScore, setGameScore] = useState(0);
+            const [wrongBlockIds, setWrongBlockIds] = useState([]);
+
+            // State Quản lý dữ liệu & Form
+            const [isEditingId, setIsEditingId] = useState(null);
+            const [singleWord, setSingleWord] = useState('');
+            const [bulkWords, setBulkWords] = useState('');
+            const [editForm, setEditForm] = useState({ word: '', type: '', defVI: '', defEN: '', example: '', syn: '', ant: '', hint: '' });
+
+            // Lưu LocalStorage đồng bộ liên tục
+            useEffect(() => {
+                localStorage.setItem('hub_vocab_data_2026', JSON.stringify(vocabList));
+            }, [vocabList]);
+
+            // Lọc danh sách từ dựa trên ô tìm kiếm
+            const filteredVocab = useMemo(() => {
+                return vocabList.filter(item => 
+                    item.word.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                    item.defVI.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+            }, [vocabList, searchQuery]);
+
+            // Reset chỉ số nếu danh sách lọc thay đổi
+            useEffect(() => {
+                setCurrentIndex(0);
+            }, [searchQuery]);
+
+            // --- CÁC HÀM XỬ LÝ TRẮC NGHIỆM ---
+            const startQuiz = () => {
+                if (vocabList.length < 4) return;
+                const shuffled = [...vocabList].sort(() => 0.5 - Math.random());
+                const questions = shuffled.slice(0, Math.min(10, vocabList.length)).map(item => {
+                    const pool = vocabList.filter(v => v.id !== item.id).sort(() => 0.5 - Math.random());
+                    const wrongAnswers = pool.slice(0, 3).map(v => v.word);
+                    const options = [...wrongAnswers, item.word].sort(() => 0.5 - Math.random());
+                    return { target: item, options, correct: item.word };
+                });
+                setQuizQuestions(questions);
+                setQuizStep(0);
+                setQuizScore(0);
+                setSelectedAnswer(null);
+                setQuizFinished(false);
+            };
+
+            const handleAnswerQuiz = (ans) => {
+                if (selectedAnswer) return;
+                setSelectedAnswer(ans);
+                if (ans === quizQuestions[quizStep].correct) {
+                    setQuizScore(prev => prev + 10);
+                }
+            };
+
+            const nextQuizStep = () => {
+                setSelectedAnswer(null);
+                if (quizStep + 1 < quizQuestions.length) {
+                    setQuizStep(prev => prev + 1);
                 } else {
-                    btn.className = "w-full flex items-center justify-center md:justify-start gap-3 p-3 rounded-xl text-sm font-medium text-slate-400 hover:bg-slate-900";
+                    setQuizFinished(true);
                 }
-            });
+            };
 
-            renderContent();
-        }
-
-        // RENDER NỘI DUNG TỪNG CHẾ ĐỘ CHƠI
-        function renderContent() {
-            const container = document.getElementById('main-content');
-            
-            if (vocabList.length === 0 && currentMode !== 'manage') {
-                container.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-500"><i data-lucide="book-open" class="w-12 h-12 mb-2"></i><p>Danh sách từ vựng trống. Hãy vào tab Quản lý để thêm từ.</p></div>`;
-                lucide.createIcons();
-                return;
-            }
-
-            if (currentMode === 'deep-dive') {
-                const cur = vocabList[currentIndex];
-                container.innerHTML = `
-                    <div class="h-full flex flex-col justify-between max-w-2xl mx-auto w-full">
-                        <div class="flex-1 bg-slate-800/50 border border-slate-800 rounded-2xl p-5 overflow-y-auto space-y-4">
-                            <div class="border-b border-slate-700/60 pb-3">
-                                <h1 class="text-3xl font-extrabold text-white">${cur.word}</h1>
-                                <p class="text-indigo-400 font-bold text-lg mt-1">${cur.definitionVn}</p>
-                            </div>
-                            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800"><span class="text-xs text-slate-400 font-bold uppercase block mb-1">Định nghĩa tiếng Anh</span><p class="text-sm">${cur.definitionEn}</p></div>
-                            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800"><span class="text-xs text-amber-400 font-bold uppercase block mb-1">💡 Mẹo Tư Duy</span><p class="text-sm text-amber-100/90 italic">${cur.mnemonic}</p></div>
-                            <div class="bg-indigo-950/40 p-4 rounded-xl border border-indigo-900/40"><span class="text-xs text-indigo-400 font-bold uppercase block mb-1">Ví Dụ Thực Tế</span><p class="font-medium text-slate-100">"${cur.example}"</p></div>
-                            <div class="grid grid-cols-2 gap-3">
-                                <div class="bg-emerald-950/20 p-3 rounded-xl border border-emerald-900/20"><span class="text-xs text-emerald-400 font-bold block mb-1">Đồng nghĩa</span><p class="text-xs">${cur.synonyms}</p></div>
-                                <div class="bg-rose-950/20 p-3 rounded-xl border border-rose-900/20"><span class="text-xs text-rose-400 font-bold block mb-1">Trái nghĩa</span><p class="text-xs">${cur.antonyms}</p></div>
-                            </div>
-                        </div>
-                        <div class="flex gap-4 mt-4">
-                            <button onclick="changeIndex(-1)" ${currentIndex === 0 ? 'disabled' : ''} class="flex-1 bg-slate-800 p-3.5 rounded-xl font-bold disabled:opacity-30">TRƯỚC</button>
-                            <button onclick="changeIndex(1)" ${currentIndex === vocabList.length - 1 ? 'disabled' : ''} class="flex-1 bg-indigo-600 p-3.5 rounded-xl font-bold disabled:opacity-30">TIẾP THEO</button>
-                        </div>
-                    </div>`;
-            } 
-            
-            else if (currentMode === 'flashcard') {
-                const cur = vocabList[currentIndex];
-                container.innerHTML = `
-                    <div class="h-full flex flex-col justify-between max-w-md mx-auto w-full">
-                        <div class="flex-1 cursor-pointer perspective-1000 my-4" onclick="toggleFlashcard()">
-                            <div id="card-inner" class="relative w-full h-full transition-transform duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}">
-                                <div class="absolute inset-0 backface-hidden bg-gradient-to-b from-indigo-900 to-slate-800 border-2 border-indigo-500/30 rounded-3xl flex flex-col items-center justify-center p-6 text-center">
-                                    <h1 class="text-4xl font-black text-white">${cur.word}</h1>
-                                    <p class="text-xs text-slate-400 mt-4">Chạm để lật xem nghĩa</p>
-                                </div>
-                                <div class="absolute inset-0 backface-hidden rotate-y-180 bg-slate-800 border-2 border-emerald-500/30 rounded-3xl flex flex-col items-center justify-center p-6 text-center">
-                                    <h2 class="text-2xl font-bold text-emerald-400">${cur.definitionVn}</h2>
-                                    <p class="text-sm text-slate-300 italic mt-3">"${cur.definitionEn}"</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex gap-3">
-                            <button onclick="changeFlashcardIndex(-1)" class="flex-1 bg-slate-800 p-3 rounded-xl font-bold text-xs">TRƯỚC</button>
-                            <button onclick="changeFlashcardIndex(1)" class="flex-1 bg-indigo-600 p-3 rounded-xl font-bold text-xs">KẾ TIẾP</button>
-                        </div>
-                    </div>`;
-            } 
-            
-            else if (currentMode === 'quiz') {
-                initQuizModule(container);
-            } 
-            
-            else if (currentMode === 'block-blast') {
-                initBlockBlastModule(container);
-            } 
-            
-            else if (currentMode === 'manage') {
-                let rowsHtml = '';
-                vocabList.forEach(v => {
-                    rowsHtml += `
-                        <tr class="border-b border-slate-800 hover:bg-slate-800/10">
-                            <td class="p-2.5 font-bold text-white">${v.word}</td>
-                            <td class="p-2.5 text-slate-300">${v.definitionVn}</td>
-                            <td class="p-2.5 text-right"><button onclick="deleteWord(${v.id})" class="text-rose-400 font-bold px-2">Xóa</button></td>
-                        </tr>`;
+            // --- CÁC HÀM XỬ LÝ GAME BLOCK BLAST ---
+            const startBlockBlast = () => {
+                const size = Math.min(6, vocabList.length);
+                const chosen = [...vocabList].sort(() => 0.5 - Math.random()).slice(0, size);
+                let elements = [];
+                chosen.forEach(item => {
+                    elements.push({ id: `w-${item.id}`, parentId: item.id, text: item.word, kind: 'E' });
+                    elements.push({ id: `v-${item.id}`, parentId: item.id, text: item.defVI.split(',')[0], kind: 'V' });
                 });
+                elements.sort(() => 0.5 - Math.random());
+                setGameBlocks(elements);
+                setSelectedBlock(null);
+                setGameScore(0);
+                setWrongBlockIds([]);
+            };
 
-                container.innerHTML = `
-                    <div class="h-full flex flex-col w-full max-w-2xl mx-auto overflow-hidden">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 shrink-0">
-                            <div class="bg-slate-800/40 p-3 border border-slate-800 rounded-xl">
-                                <input type="text" id="txt-single" placeholder="Nhập từ English..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs mb-2 text-white" />
-                                <button onclick="addSingleWord()" class="w-full bg-indigo-600 py-1.5 rounded-lg text-xs font-bold">THÊM 1 TỪ</button>
-                            </div>
-                            <div class="bg-slate-800/40 p-3 border border-slate-800 rounded-xl">
-                                <textarea id="txt-bulk" rows="1" placeholder="Từ 1, Từ 2, Từ 3..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs mb-2 text-white resize-none"></textarea>
-                                <button onclick="addBulkWords()" class="w-full bg-emerald-600 py-1.5 rounded-lg text-xs font-bold">THÊM HÀNG LOẠT</button>
-                            </div>
-                        </div>
-                        <div class="flex-1 bg-slate-800/20 border border-slate-800 rounded-xl overflow-y-auto">
-                            <table class="w-full text-left border-collapse text-xs">
-                                <thead class="bg-slate-950 sticky top-0 text-slate-400 font-bold">
-                                    <tr><th class="p-2.5">Từ vựng</th><th class="p-2.5">Định nghĩa Việt</th><th class="p-2.5 text-right">Xóa</th></tr>
-                                </thead>
-                                <tbody>${rowsHtml}</tbody>
-                            </table>
-                        </div>
-                    </div>`;
-            }
-
-            lucide.createIcons();
-        }
-
-        // --- CÁC HÀM XỬ LÝ SỰ KIỆN CHO DEEP DIVE & FLASHCARD ---
-        function changeIndex(dir) {
-            currentIndex += dir;
-            renderContent();
-        }
-        function toggleFlashcard() {
-            isFlipped = !isFlipped;
-            document.getElementById('card-inner').classList.toggle('rotate-y-180', isFlipped);
-        }
-        function changeFlashcardIndex(dir) {
-            isFlipped = false;
-            currentIndex = (currentIndex + dir + vocabList.length) % vocabList.length;
-            renderContent();
-        }
-
-        // --- HÀM XỬ LÝ CHẾ ĐỘ QUẢN LÝ TỪ VỰNG ---
-        function addSingleWord() {
-            const input = document.getElementById('txt-single');
-            if(!input.value.trim()) return;
-            vocabList.unshift({
-                id: Date.now(),
-                word: input.value.trim(),
-                definitionVn: "Đã tạo tự động - Hãy cập nhật nghĩa",
-                definitionEn: "Auto generated definition", example: "Auto generated example", synonyms: "N/A", antonyms: "N/A", mnemonic: "Tự tạo mẹo nhớ từ"
-            });
-            input.value = '';
-            saveToStorage();
-            renderContent();
-        }
-        function addBulkWords() {
-            const textarea = document.getElementById('txt-bulk');
-            if(!textarea.value.trim()) return;
-            const words = textarea.value.split(/[\n,]+/).map(w => w.trim()).filter(w => w.length > 0);
-            words.forEach(w => {
-                vocabList.unshift({
-                    id: Date.now() + Math.random(),
-                    word: w, definitionVn: "Đã tạo tự động", definitionEn: "Auto generated definition", example: "Auto generated example", synonyms: "N/A", antonyms: "N/A", mnemonic: "Tự tạo mẹo nhớ"
-                });
-            });
-            textarea.value = '';
-            saveToStorage();
-            renderContent();
-        }
-        function deleteWord(id) {
-            vocabList = vocabList.filter(v => v.id !== id);
-            saveToStorage();
-            renderContent();
-        }
-
-        // --- MODULE TRẮC NGHIỆM (QUIZ) ---
-        let quizQuestions = [];
-        let currentQuizIdx = 0;
-        let quizScore = 0;
-        let quizSelected = false;
-
-        function initQuizModule(container) {
-            if (vocabList.length < 4) {
-                container.innerHTML = `<div class="text-center p-8 text-slate-500">Cần tối thiểu 4 từ vựng trong danh sách để tạo bài kiểm tra.</div>`;
-                return;
-            }
-            // Tạo 10 câu ngẫu nhiên
-            const shuffled = [...vocabList].sort(() => 0.5 - Math.random()).slice(0, 10);
-            quizQuestions = shuffled.map(item => {
-                const wrongs = vocabList.filter(v => v.id !== item.id).sort(() => 0.5 - Math.random()).slice(0, 3);
-                const options = [...wrongs, item].sort(() => 0.5 - Math.random());
-                return { question: item.definitionVn, correct: item.word, options };
-            });
-            currentQuizIdx = 0; quizScore = 0; quizSelected = false;
-            renderQuizQuestion(container);
-        }
-
-        function renderQuizQuestion(container) {
-            if (currentQuizIdx >= quizQuestions.length) {
-                container.innerHTML = `
-                    <div class="max-w-md mx-auto text-center py-8 bg-slate-800/40 p-6 border border-slate-800 rounded-2xl">
-                        <h2 class="text-2xl font-black text-white">HOÀN THÀNH</h2>
-                        <div class="text-4xl font-extrabold text-indigo-400 my-4">${quizScore} / ${quizQuestions.length}</div>
-                        <button onclick="switchMode('quiz')" class="w-full bg-indigo-600 py-3 rounded-xl font-bold">LÀM LẠI BÀI MỚI</button>
-                    </div>`;
-                return;
-            }
-            quizSelected = false;
-            const q = quizQuestions[currentQuizIdx];
-            let optionsHtml = '';
-            q.options.forEach((opt, idx) => {
-                optionsHtml += `<button onclick="checkQuizAnswer(this, '${opt.word}', '${q.correct}')" class="quiz-opt-btn p-3.5 border border-slate-700 bg-slate-800 text-left rounded-xl text-sm font-medium hover:bg-slate-700 transition-all text-white">${opt.word}</button>`;
-            });
-
-            container.innerHTML = `
-                <div class="max-w-xl mx-auto w-full h-full flex flex-col justify-center">
-                    <div class="flex justify-between text-xs text-slate-400 mb-2"><span>Câu ${currentQuizIdx + 1}/${quizQuestions.length}</span><span>Điểm: ${quizScore}</span></div>
-                    <div class="bg-slate-800/80 border border-slate-700 p-6 rounded-2xl text-center mb-4 font-bold text-lg text-white">${q.question}</div>
-                    <div class="grid grid-cols-1 gap-2">${optionsHtml}</div>
-                </div>`;
-        }
-
-        function checkQuizAnswer(btn, selected, correct) {
-            if(quizSelected) return;
-            quizSelected = true;
-            
-            const buttons = document.querySelectorAll('.quiz-opt-btn');
-            buttons.forEach(b => {
-                if(b.innerText === correct) b.className = "p-3.5 border border-emerald-500 bg-emerald-600 rounded-xl text-sm font-medium text-white text-left w-full";
-                else if(b === btn && selected !== correct) b.className = "p-3.5 border border-rose-500 bg-rose-600 rounded-xl text-sm font-medium text-white text-left w-full";
-                else b.className = "p-3.5 border border-slate-800 bg-slate-800/40 rounded-xl text-sm font-medium text-slate-600 text-left w-full opacity-40";
-            });
-
-            if(selected === correct) quizScore++;
-            setTimeout(() => {
-                currentQuizIdx++;
-                renderQuizQuestion(document.getElementById('main-content'));
-            }, 1100);
-        }
-
-        // --- MODULE GAME (BLOCK BLAST) ---
-        let gameBlocks = [];
-        let selectedBlock = null;
-        let gameScore = 0;
-
-        function initBlockBlastModule(container) {
-            if(vocabList.length < 5) {
-                container.innerHTML = `<div class="text-center p-8 text-slate-500">Cần ít nhất 5 từ vựng để chơi minigame phá khối.</div>`;
-                return;
-            }
-            const selected = [...vocabList].sort(() => 0.5 - Math.random()).slice(0, 6);
-            gameBlocks = [];
-            selected.forEach(item => {
-                gameBlocks.push({ id: `w-${item.id}`, matchId: item.id, val: item.word, type: 'word' });
-                gameBlocks.push({ id: `d-${item.id}`, matchId: item.id, val: item.definitionVn, type: 'def' });
-            });
-            gameBlocks.sort(() => 0.5 - Math.random());
-            gameScore = 0; selectedBlock = null;
-            renderGameBoard(container);
-        }
-
-        function renderGameBoard(container) {
-            if (gameBlocks.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center max-w-sm mx-auto bg-slate-800/50 p-6 rounded-2xl border border-slate-800">
-                        <h3 class="text-xl font-bold mb-1 text-white">Chiến Thắng! 🎉</h3>
-                        <p class="text-slate-400 text-xs mb-4">Bạn đã dọn sạch toàn bộ ma trận khối.</p>
-                        <button onclick="switchMode('block-blast')" class="bg-cyan-600 px-5 py-2.5 rounded-xl text-xs font-bold text-white">CHƠI LẠI VÒNG MỚI</button>
-                    </div>`;
-                return;
-            }
-
-            let gridHtml = '';
-            gameBlocks.forEach(b => {
-                let style = "bg-slate-800 border-slate-700 text-slate-200";
-                if(selectedBlock && selectedBlock.id === b.id) {
-                    style = "bg-indigo-600 border-indigo-400 text-white scale-105 ring-2 ring-indigo-400";
+            const handleBlockClick = (block) => {
+                if (block.done || wrongBlockIds.length > 0) return;
+                if (!selectedBlock) {
+                    setSelectedBlock(block);
+                    return;
                 }
-                gridHtml += `<button id="block-${b.id}" onclick="handleBlockSelect('${b.id}')" class="h-16 p-2 border rounded-xl text-xs font-semibold text-center transition-all overflow-hidden ${style}">${b.val}</button>`;
-            });
+                if (selectedBlock.id === block.id) {
+                    setSelectedBlock(null);
+                    return;
+                }
 
-            container.innerHTML = `
-                <div class="max-w-xl mx-auto w-full h-full flex flex-col justify-between">
-                    <div class="flex justify-between items-center mb-2"><span class="text-cyan-400 font-bold text-sm">ĐIỂM SỐ: ${gameScore}</span><button onclick="switchMode('block-blast')" class="text-xs bg-slate-800 border border-slate-700 text-slate-300 px-3 py-1 rounded-lg">Làm mới</button></div>
-                    <div class="flex-1 flex items-center justify-center"><div class="grid grid-cols-2 sm:grid-cols-3 gap-2 w-full max-h-[72vh] overflow-y-auto">${gridHtml}</div></div>
-                </div>`;
+                if (selectedBlock.parentId === block.parentId && selectedBlock.kind !== block.kind) {
+                    // Đúng cặp -> Biến mất khối
+                    setGameBlocks(prev => prev.map(b => b.parentId === block.parentId ? { ...b, done: true } : b));
+                    setGameScore(prev => prev + 25);
+                    setSelectedBlock(null);
+                } else {
+                    // Sai cặp -> Rung lắc giật giật
+                    setWrongBlockIds([selectedBlock.id, block.id]);
+                    setGameScore(prev => Math.max(0, prev - 5));
+                    setTimeout(() => {
+                        setWrongBlockIds([]);
+                        setSelectedBlock(null);
+                    }, 500);
+                }
+            };
+
+            // --- CÁC HÀM QUẢN LÝ TỪ (CRUD & AUTO ANALYZE) ---
+            const handleAddSingleWord = () => {
+                if (!singleWord.trim()) return;
+                const newW = singleWord.trim();
+                // Giả lập cơ chế Auto-AI tự động phân tích dữ liệu bị thiếu
+                const analyzedItem = {
+                    id: Date.now(),
+                    word: newW.toLowerCase(),
+                    type: "new word",
+                    defEN: `Auto generated clear definition for ${newW}`,
+                    defVI: `Nghĩa tự động của ${newW} (Vui lòng cập nhật)`,
+                    example: `This is a contextual example demonstrating how to use ${newW} correctly.`,
+                    syn: "updating...",
+                    ant: "updating...",
+                    hint: `Mẹo ghi nhớ từ ${newW}: Hãy liên tưởng âm thanh tương tự để ghi nhớ sâu.`
+                };
+                setVocabList([analyzedItem, ...vocabList]);
+                setSingleWord('');
+            };
+
+            const handleAddBulkWords = () => {
+                if (!bulkWords.trim()) return;
+                const lines = bulkWords.split('\n');
+                const addedItems = [];
+                lines.forEach((line, idx) => {
+                    const word = line.trim();
+                    if (word) {
+                        addedItems.push({
+                            id: Date.now() + idx,
+                            word: word.toLowerCase(),
+                            type: "bulk word",
+                            defEN: "Auto parsed definition.",
+                            defVI: `Nghĩa của từ: ${word}`,
+                            example: `Example sentence with ${word}.`,
+                            syn: "n/a",
+                            ant: "n/a",
+                            hint: "Mẹo nhớ tự động dựa trên gốc từ."
+                        });
+                    }
+                });
+                setVocabList([...addedItems, ...vocabList]);
+                setBulkWords('');
+            };
+
+            const deleteWord = (id) => {
+                if (confirm("Bạn có chắc chắn muốn xóa từ vựng này không?")) {
+                    setVocabList(prev => prev.filter(v => v.id !== id));
+                }
+            };
+
+            const editClick = (item) => {
+                setIsEditingId(item.id);
+                setEditForm({ ...item });
+            };
+
+            const saveEdit = () => {
+                setVocabList(prev => prev.map(v => v.id === isEditingId ? editForm : v));
+                setIsEditingId(null);
+            };
+
+            const exportToGitHubJson = () => {
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(vocabList, null, 2));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                downloadAnchor.setAttribute("download", "vocab_github_standard.json");
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+            };
+
+            return (
+                <div class="flex-1 flex flex-col h-full max-h-screen">
+                    {/* Header */}
+                    <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow-md shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div class="p-2 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-xl shadow-lg">
+                                <Icon name="Sparkles" className="w-6 h-6 text-white" />
+                            </div>
+                            <div>
+                                <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-400 bg-clip-text text-transparent">VocabMaster Hub</h1>
+                                <p class="text-xs text-slate-400 font-medium">Học Thông Minh • Đọc Sâu • Phản Xạ Nhanh</p>
+                            </div>
+                        </div>
+
+                        {/* Ô tìm kiếm nhanh trên Header */}
+                        <div class="relative w-64 hidden sm:block">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                <Icon name="Search" className="w-4 h-4 text-slate-500" />
+                            </span>
+                            <input 
+                                type="text" 
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Tìm từ, nghĩa Việt..." 
+                                class="w-full pl-9 pr-4 py-1.5 bg-slate-950/60 border border-slate-800 rounded-lg text-xs focus:outline-none focus:border-indigo-500 text-slate-200"
+                            />
+                        </div>
+
+                        {/* Bộ điều hướng chế độ học */}
+                        <nav class="flex items-center space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                            <button onClick={() => { setCurrentTab('deep-dive'); setIsFlipped(false); }} class={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-200 ${currentTab === 'deep-dive' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+                                <Icon name="BookOpen" className="w-3.5 h-3.5" /> <span>Deep Dive</span>
+                            </button>
+                            <button onClick={() => { setCurrentTab('flashcard'); setIsFlipped(false); }} class={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-200 ${currentTab === 'flashcard' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+                                <Icon name="Layers" className="w-3.5 h-3.5" /> <span>Flashcard</span>
+                            </button>
+                            <button onClick={() => { setCurrentTab('quiz'); startQuiz(); }} class={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-200 ${currentTab === 'quiz' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+                                <Icon name="Award" className="w-3.5 h-3.5" /> <span>Quiz Game</span>
+                            </button>
+                            <button onClick={() => { setCurrentTab('block-blast'); startBlockBlast(); }} class={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-200 ${currentTab === 'block-blast' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+                                <Icon name="Grid" className="w-3.5 h-3.5" /> <span>Block Blast</span>
+                            </button>
+                            <button onClick={() => setCurrentTab('manage')} class={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1.5 transition-all duration-200 ${currentTab === 'manage' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+                                <Icon name="FileText" className="w-3.5 h-3.5" /> <span>Quản lý ({vocabList.length})</span>
+                            </button>
+                        </nav>
+                    </header>
+
+                    {/* Vùng Content chính - Chiếm trọn màn hình và có scroll độc lập */}
+                    <main class="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-950 flex flex-col justify-center items-center">
+                        {filteredVocab.length === 0 && currentTab === 'deep-dive' ? (
+                            <div class="text-center py-12">
+                                <Icon name="HelpCircle" className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                                <p class="text-slate-400 text-sm">Không tìm thấy từ vựng nào trùng khớp.</p>
+                            </div>
+                        ) : (
+                            <div class="w-full max-w-4xl h-full flex flex-col justify-center">
+                                
+                                {/* 1. CHẾ ĐỘ CHÚ THÍCH SÂU (DEEP DIVE) */}
+                                {currentTab === 'deep-dive' && (
+                                    <div class="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 flex flex-col justify-between min-h-[460px] transform transition-all">
+                                        <div>
+                                            <div class="flex justify-between items-start border-b border-slate-800 pb-4 mb-4">
+                                                <div>
+                                                    <span class="inline-block text-[10px] uppercase font-bold tracking-widest bg-indigo-500/10 text-indigo-400 px-2.5 py-1 rounded-full border border-indigo-500/20 mb-2">
+                                                        {filteredVocab[currentIndex]?.type || 'vocabulary'}
+                                                    </span>
+                                                    <h2 class="text-3xl font-extrabold text-white tracking-tight">{filteredVocab[currentIndex]?.word}</h2>
+                                                </div>
+                                                <button onClick={() => {
+                                                    const text = filteredVocab[currentIndex]?.word;
+                                                    const utterance = new SpeechSynthesisUtterance(text);
+                                                    utterance.lang = 'en-US';
+                                                    window.speechSynthesis.speak(utterance);
+                                                }} class="p-3 bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 rounded-xl transition shadow-inner">
+                                                    <Icon name="Volume2" className="w-5 h-5" />
+                                                </button>
+                                            </div>
+
+                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div class="space-y-4">
+                                                    <div>
+                                                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Nghĩa tiếng Việt</h4>
+                                                        <p class="text-base font-semibold text-emerald-400 bg-emerald-500/5 border border-emerald-500/10 px-3 py-2 rounded-lg">{filteredVocab[currentIndex]?.defVI}</p>
+                                                    </div>
+                                                    <div>
+                                                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">English Definition</h4>
+                                                        <p class="text-sm font-medium text-slate-300 bg-slate-950 p-3 rounded-lg border border-slate-800 leading-relaxed italic">"{filteredVocab[currentIndex]?.defEN}"</p>
+                                                    </div>
+                                                </div>
+
+                                                <div class="space-y-4">
+                                                    <div>
+                                                        <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Ví dụ thực tế</h4>
+                                                        <p class="text-sm text-indigo-200 leading-relaxed bg-indigo-500/5 p-3 rounded-lg border border-indigo-500/10 font-serif">
+                                                            {filteredVocab[currentIndex]?.example}
+                                                        </p>
+                                                    </div>
+                                                    <div class="grid grid-cols-2 gap-3">
+                                                        <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800/60">
+                                                            <span class="block text-[10px] font-bold text-amber-500 uppercase">Đồng nghĩa</span>
+                                                            <span class="text-xs text-slate-300 font-medium">{filteredVocab[currentIndex]?.syn || '---'}</span>
+                                                        </div>
+                                                        <div class="bg-slate-950 p-2.5 rounded-lg border border-slate-800/60">
+                                                            <span class="block text-[10px] font-bold text-rose-500 uppercase">Trái nghĩa</span>
+                                                            <span class="text-xs text-slate-300 font-medium">{filteredVocab[currentIndex]?.ant || '---'}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mt-5 bg-gradient-to-r from-amber-500/10 to-orange-500/5 border border-amber-500/20 p-3.5 rounded-xl flex items-start space-x-3">
+                                                <div class="p-1.5 bg-amber-500/20 rounded-lg text-amber-400 shrink-0">
+                                                    <Icon name="Lightbulb" className="w-4 h-4" />
+                                                </div>
+                                                <div>
+                                                    <h5 class="text-xs font-bold text-amber-400 uppercase tracking-wide">Mẹo tư duy / Cách nhớ sâu</h5>
+                                                    <p class="text-xs text-amber-200/90 mt-0.5 leading-relaxed font-medium">{filteredVocab[currentIndex]?.hint}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Thanh điều hướng từ vựng */}
+                                        <div class="flex items-center justify-between border-t border-slate-800 pt-4 mt-6 text-slate-400 text-xs">
+                                            <span>Thứ tự: <b>{currentIndex + 1}</b> / {filteredVocab.length}</span>
+                                            <div class="flex space-x-2">
+                                                <button disabled={currentIndex === 0} onClick={() => setCurrentIndex(p => p - 1)} class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg disabled:opacity-30 disabled:hover:bg-slate-800 transition flex items-center">
+                                                    <Icon name="ChevronLeft" className="w-4 h-4 mr-1" /> Trước
+                                                </button>
+                                                <button disabled={currentIndex === filteredVocab.length - 1} onClick={() => setCurrentIndex(p => p + 1)} class="px-3 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg disabled:opacity-30 disabled:hover:bg-indigo-600 transition flex items-center font-semibold">
+                                                    Tiếp theo <Icon name="ChevronRight" className="w-4 h-4 ml-1" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 2. THẺ LẬT THÔNG MINH (3D FLASHCARD) */}
+                                {currentTab === 'flashcard' && (
+                                    <div class="flex flex-col items-center justify-center">
+                                        <div onClick={() => setIsFlipped(!isFlipped)} class="w-full max-w-md h-72 perspective-1000 cursor-pointer">
+                                            <div class={`w-full h-full duration-500 transform-style-3d relative ${isFlipped ? 'rotate-y-180' : ''}`}>
+                                                
+                                                {/* Mặt Trước (Từ tiếng Anh) */}
+                                                <div class="absolute inset-0 bg-gradient-to-br from-indigo-900 to-slate-900 border-2 border-indigo-500/30 rounded-2xl shadow-2xl flex flex-col justify-center items-center backface-hidden p-6 text-center">
+                                                    <span class="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-2">{filteredVocab[currentIndex]?.type}</span>
+                                                    <h3 class="text-4xl font-extrabold text-white tracking-wide">{filteredVocab[currentIndex]?.word}</h3>
+                                                    <p class="text-slate-500 text-xs mt-6 flex items-center bg-slate-950/80 px-3 py-1.5 rounded-full border border-slate-800">
+                                                        <Icon name="RotateCcw" className="w-3 h-3 mr-1.5 text-indigo-400" /> Click để lật xem nghĩa
+                                                    </p>
+                                                </div>
+
+                                                {/* Mặt Sau (Nghĩa Anh - Việt) */}
+                                                <div class="absolute inset-0 bg-slate-900 border-2 border-emerald-500/30 rounded-2xl shadow-2xl flex flex-col justify-between backface-hidden rotate-y-180 p-6">
+                                                    <div class="text-center my-auto space-y-4">
+                                                        <div>
+                                                            <span class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Nghĩa Việt</span>
+                                                            <h4 class="text-xl font-bold text-emerald-400">{filteredVocab[currentIndex]?.defVI}</h4>
+                                                        </div>
+                                                        <div class="border-t border-slate-800/80 pt-3">
+                                                            <span class="text-[10px] font-bold text-slate-500 uppercase block mb-1">English Definition</span>
+                                                            <p class="text-xs text-slate-300 italic font-medium">"{filteredVocab[currentIndex]?.defEN}"</p>
+                                                        </div>
+                                                    </div>
+                                                    <div class="text-center text-[10px] text-slate-500 border-t border-slate-800/60 pt-2">
+                                                        Click thẻ để quay lại mặt trước
+                                                    </div>
+                                                </div>
+
+                                            </div>
+                                        </div>
+
+                                        {/* Bộ điều khiển thẻ lật */}
+                                        <div class="flex items-center space-x-6 mt-6">
+                                            <button disabled={currentIndex === 0} onClick={() => { setIsFlipped(false); setCurrentIndex(p => p - 1); }} class="p-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl disabled:opacity-20 transition shadow">
+                                                <Icon name="ChevronLeft" className="w-5 h-5" />
+                                            </button>
+                                            <span class="text-sm font-semibold text-slate-400">Thẻ {currentIndex + 1} / {filteredVocab.length}</span>
+                                            <button disabled={currentIndex === filteredVocab.length - 1} onClick={() => { setIsFlipped(false); setCurrentIndex(p => p + 1); }} class="p-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl disabled:opacity-20 transition shadow">
+                                                <Icon name="ChevronRight" className="w-5 h-5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 3. TRẮC NGHIỆM ĐÁNH GIÁ (QUIZ) */}
+                                {currentTab === 'quiz' && (
+                                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl w-full max-w-2xl mx-auto min-h-[380px] flex flex-col justify-between">
+                                        {vocabList.length < 4 ? (
+                                            <div class="text-center py-12 text-slate-400 text-sm">Bạn cần tối thiểu 4 từ vựng trong hệ thống để kích hoạt chế độ Trắc nghiệm.</div>
+                                        ) : quizFinished ? (
+                                            <div class="text-center py-8 my-auto">
+                                                <div class="w-16 h-16 bg-indigo-500/10 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/20 shadow-lg">
+                                                    <Icon name="Award" className="w-8 h-8" />
+                                                </div>
+                                                <h3 class="text-2xl font-black text-white mb-1">Hoàn thành bài test!</h3>
+                                                <p class="text-slate-400 text-sm mb-6">Kết quả đạt được của bạn:</p>
+                                                <div class="text-5xl font-extrabold text-indigo-400 mb-6 bg-indigo-500/5 inline-block px-6 py-3 rounded-2xl border border-indigo-500/10">{quizScore} <span class="text-xl text-slate-500">/ 100 Điểm</span></div>
+                                                <div>
+                                                    <button onClick={startQuiz} class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition shadow-lg">
+                                                        Làm bài Test mới
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div>
+                                                {/* Header tiến trình */}
+                                                <div class="flex justify-between items-center mb-5 text-xs font-bold uppercase tracking-wider text-slate-400">
+                                                    <span>Câu hỏi {quizStep + 1} / {quizQuestions.length}</span>
+                                                    <span class="text-indigo-400">Điểm hiện tại: {quizScore}</span>
+                                                </div>
+                                                
+                                                {/* Thanh tiến trình */}
+                                                <div class="w-full bg-slate-950 h-1.5 rounded-full mb-6 overflow-hidden border border-slate-800">
+                                                    <div class="bg-indigo-500 h-full transition-all duration-300" style={{ width: `${((quizStep + 1) / quizQuestions.length) * 100}%` }}></div>
+                                                </div>
+
+                                                {/* Câu hỏi nghĩa từ */}
+                                                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 mb-6 shadow-inner">
+                                                    <span class="text-[10px] text-slate-500 font-bold uppercase block mb-1">Chọn từ vựng tiếng Anh đúng với nghĩa:</span>
+                                                    <p class="text-lg font-bold text-slate-200">"{quizQuestions[quizStep]?.target.defVI}"</p>
+                                                </div>
+
+                                                {/* 4 Lựa chọn */}
+                                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    {quizQuestions[quizStep]?.options.map((opt, i) => {
+                                                        const isCorrect = opt === quizQuestions[quizStep].correct;
+                                                        const isSelected = opt === selectedAnswer;
+                                                        let btnStyle = "border-slate-800 bg-slate-950/60 hover:bg-slate-800 hover:border-slate-700 text-slate-300";
+                                                        
+                                                        if (selectedAnswer) {
+                                                            if (isCorrect) btnStyle = "border-emerald-500 bg-emerald-500/10 text-emerald-400 font-bold";
+                                                            else if (isSelected) btnStyle = "border-rose-500 bg-rose-500/10 text-rose-400 line-through";
+                                                            else btnStyle = "border-slate-900 bg-slate-950 opacity-40 text-slate-600";
+                                                        }
+
+                                                        return (
+                                                            <button 
+                                                                key={i}
+                                                                disabled={selectedAnswer !== null}
+                                                                onClick={() => handleAnswerQuiz(opt)}
+                                                                class={`p-3.5 border rounded-xl text-left text-xs font-medium transition-all duration-150 flex items-center justify-between ${btnStyle}`}
+                                                            >
+                                                                <span>{opt}</span>
+                                                                {selectedAnswer && isCorrect && <Icon name="Check" className="w-4 h-4 text-emerald-400" />}
+                                                                {selectedAnswer && isSelected && !isCorrect && <Icon name="X" className="w-4 h-4 text-rose-400" />}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                {/* Nút chuyển tiếp câu hỏi */}
+                                                {selectedAnswer && (
+                                                    <div class="mt-6 flex justify-end">
+                                                        <button onClick={nextQuizStep} class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center">
+                                                            {quizStep + 1 === quizQuestions.length ? 'Xem kết quả' : 'Câu tiếp theo'} <Icon name="ChevronRight" className="w-4 h-4 ml-1" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* 4. PHẢN XẠ NHANH (BLOCK BLAST GAME) */}
+                                {currentTab === 'block-blast' && (
+                                    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl w-full max-w-3xl mx-auto min-h-[420px] flex flex-col justify-between">
+                                        <div>
+                                            <div class="flex justify-between items-center mb-4 border-b border-slate-800 pb-3">
+                                                <div>
+                                                    <h3 class="text-base font-black text-white flex items-center"><Icon name="Grid" className="w-4 h-4 mr-1.5 text-indigo-400" /> Block Blast Matcher</h3>
+                                                    <p class="text-[11px] text-slate-400">Chọn 1 khối [Từ Tiếng Anh] phối cặp tương ứng với 1 khối [Nghĩa Tiếng Việt].</p>
+                                                </div>
+                                                <div class="bg-slate-950 px-4 py-2 border border-slate-800 rounded-xl text-center shadow-inner">
+                                                    <span class="block text-[9px] font-bold text-slate-500 uppercase">Score</span>
+                                                    <span class="text-base font-black text-indigo-400">{gameScore}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Lưới chứa các khối */}
+                                            {gameBlocks.every(b => b.done) && gameBlocks.length > 0 ? (
+                                                <div class="text-center py-12">
+                                                    <div class="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-3 border border-emerald-500/20">
+                                                        <Icon name="Check" className="w-6 h-6" />
+                                                    </div>
+                                                    <h4 class="text-lg font-bold text-white mb-1">Clear Sạch Bảng Khối!</h4>
+                                                    <p class="text-xs text-slate-400 mb-5">Bạn đã kết nối chính xác toàn bộ các cặp từ.</p>
+                                                    <button onClick={startBlockBlast} class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition shadow">
+                                                        Chơi ván tiếp theo
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 py-2">
+                                                    {gameBlocks.map((block) => {
+                                                        if (block.done) {
+                                                            return <div key={block.id} class="h-14 border border-dashed border-slate-800/40 rounded-xl opacity-0 transition-all duration-300 pointer-events-none"></div>;
+                                                        }
+
+                                                        const isSelected = selectedBlock?.id === block.id;
+                                                        const isWrong = wrongBlockIds.includes(block.id);
+                                                        
+                                                        let cardStyle = "bg-slate-950 border-slate-800 hover:border-slate-600 hover:bg-slate-900 text-slate-200";
+                                                        if (isSelected) cardStyle = "bg-indigo-600 border-indigo-400 text-white font-bold shadow-lg shadow-indigo-600/20 scale-95";
+                                                        if (isWrong) cardStyle = "bg-rose-500/20 border-rose-500 text-rose-400 animate-shake font-bold";
+
+                                                        return (
+                                                            <button
+                                                                key={block.id}
+                                                                onClick={() => handleBlockClick(block)}
+                                                                class={`h-14 px-3 border rounded-xl text-xs font-semibold text-center flex items-center justify-center transition-all duration-150 shadow-sm leading-tight select-none ${cardStyle}`}
+                                                            >
+                                                                <span class="line-clamp-2">{block.text}</span>
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div class="mt-4 flex justify-between items-center border-t border-slate-800 pt-3">
+                                            <span class="text-[11px] font-medium text-slate-500">Đúng: <span class="text-emerald-400">+25đ</span> • Sai: <span class="text-rose-400">-5đ</span></span>
+                                            <button onClick={startBlockBlast} class="text-xs font-bold text-slate-400 hover:text-white flex items-center space-x-1 bg-slate-950 px-3 py-1.5 border border-slate-800 rounded-lg transition">
+                                                <Icon name="RotateCcw" className="w-3.5 h-3.5" /> <span>Trộn lại bảng</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* 5. TRÌNH QUẢN LÝ BÀI HỌC VÀ THÊM TỪ (CRUD) */}
+                                {currentTab === 'manage' && (
+                                    <div class="space-y-6 w-full max-w-4xl mx-auto">
+                                        
+                                        {/* Bảng công cụ thêm dữ liệu */}
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            
+                                            {/* Thêm một từ lẻ */}
+                                            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md">
+                                                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center"><Icon name="Plus" className="w-3.5 h-3.5 mr-1 text-indigo-400" /> Thêm 1 từ vựng lẻ</h3>
+                                                <div class="flex space-x-2">
+                                                    <input 
+                                                        type="text"
+                                                        value={singleWord}
+                                                        onChange={(e) => setSingleWord(e.target.value)}
+                                                        placeholder="Nhập từ Tiếng Anh (Ví dụ: approach)"
+                                                        class="flex-1 bg-slate-950 border border-slate-800 rounded-lg text-xs px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                                                    />
+                                                    <button onClick={handleAddSingleWord} class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition shrink-0 flex items-center">
+                                                        Thêm & Phân tích
+                                                    </button>
+                                                </div>
+                                                <p class="text-[10px] text-slate-500 mt-2 font-medium">Hệ thống tự động phân tích cấu trúc, nghĩa bổ sung, mẹo tư duy cho bạn.</p>
+                                            </div>
+
+                                            {/* Thêm hàng loạt (Bulk Add) */}
+                                            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md">
+                                                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center"><Icon name="Layers" className="w-3.5 h-3.5 mr-1 text-indigo-400" /> Nhập danh sách số lượng lớn</h3>
+                                                <div class="flex space-x-2">
+                                                    <textarea 
+                                                        rows="1"
+                                                        value={bulkWords}
+                                                        onChange={(e) => setBulkWords(e.target.value)}
+                                                        placeholder="Mỗi từ một dòng (Ví dụ:&#10;sustainability&#10;innovation)"
+                                                        class="flex-1 bg-slate-950 border border-slate-800 rounded-lg text-xs px-3 py-1.5 text-white focus:outline-none focus:border-indigo-500 resize-none"
+                                                    />
+                                                    <button onClick={handleAddBulkWords} class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg transition shrink-0">
+                                                        Nhập Bulk
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Thanh điều khiển GitHub / Lưu trữ */}
+                                        <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
+                                            <div>
+                                                <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center"><Icon name="Download" className="w-4 h-4 mr-1 text-emerald-400" /> Tải dữ liệu chuẩn hóa về kho</h3>
+                                                <p class="text-[11px] text-slate-400 mt-0.5">Xuất file cấu trúc JSON sạch để đồng bộ hóa lên GitHub cá nhân của bạn.</p>
+                                            </div>
+                                            <button onClick={exportToGitHubJson} class="w-full sm:w-auto px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition flex items-center justify-center space-x-1.5 shadow-md">
+                                                <Icon name="Download" className="w-3.5 h-3.5" /> <span>Cho GitHub (Tải .json)</span>
+                                            </button>
+                                        </div>
+
+                                        {/* Danh sách quản trị từ vựng hiển thị dưới dạng hàng */}
+                                        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl">
+                                            <div class="p-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center">
+                                                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Bảng danh mục phân tích chi tiết ({vocabList.length} từ)</h3>
+                                            </div>
+
+                                            <div class="divide-y divide-slate-800/60 max-h-96 overflow-y-auto">
+                                                {vocabList.map((item, idx) => (
+                                                    <div key={item.id} class="p-4 hover:bg-slate-950/40 transition-all">
+                                                        {isEditingId === item.id ? (
+                                                            /* Trình Chỉnh Sửa Tại Chỗ */
+                                                            <div class="space-y-3 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                                                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                                                    <div>
+                                                                        <label class="block text-[10px] text-slate-500 font-bold uppercase mb-1">Từ vựng (EN)</label>
+                                                                        <input type="text" value={editForm.word} onChange={e => setEditForm({...editForm, word: e.target.value})} class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-xs text-white" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label class="block text-[10px] text-slate-500 font-bold uppercase mb-1">Nghĩa Việt</label>
+                                                                        <input type="text" value={editForm.defVI} onChange={e => setEditForm({...editForm, defVI: e.target.value})} class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-xs text-white" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label class="block text-[10px] text-slate-500 font-bold uppercase mb-1">Thuộc tính từ</label>
+                                                                        <input type="text" value={editForm.type} onChange={e => setEditForm({...editForm, type: e.target.value})} class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-xs text-white" />
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <label class="block text-[10px] text-slate-500 font-bold uppercase mb-1">Định nghĩa tiếng Anh</label>
+                                                                    <input type="text" value={editForm.defEN} onChange={e => setEditForm({...editForm, defEN: e.target.value})} class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-xs text-white" />
+                                                                </div>
+                                                                <div>
+                                                                    <label class="block text-[10px] text-slate-500 font-bold uppercase mb-1">Ví dụ thực tế</label>
+                                                                    <textarea rows="1" value={editForm.example} onChange={e => setEditForm({...editForm, example: e.target.value})} class="w-full bg-slate-900 border border-slate-800 rounded p-1 text-xs text-white resize-none" />
+                                                                </div>
+                                                                <div class="flex justify-end space-x-2 pt-1 border-t border-slate-900">
+                                                                    <button onClick={() => setIsEditingId(null)} class="px-2.5 py-1 bg-slate-800 text-slate-400 text-[11px] font-bold rounded">Hủy</button>
+                                                                    <button onClick={saveEdit} class="px-3 py-1 bg-indigo-600 text-white text-[11px] font-bold rounded flex items-center"><Icon name="Save" className="w-3 h-3 mr-1" /> Lưu thay đổi</button>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            /* Chế độ hiển thị danh sách dòng */
+                                                            <div class="flex items-start justify-between gap-4">
+                                                                <div class="space-y-1 flex-1">
+                                                                    <div class="flex items-baseline space-x-2">
+                                                                        <span class="text-xs font-bold text-slate-500">{idx + 1}.</span>
+                                                                        <span class="text-sm font-black text-white">{item.word}</span>
+                                                                        <span class="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20">{item.type}</span>
+                                                                    </div>
+                                                                    <p class="text-xs font-semibold text-emerald-400">{item.defVI}</p>
+                                                                    <p class="text-[11px] text-slate-400 italic line-clamp-1">"{item.defEN}"</p>
+                                                                </div>
+                                                                <div class="flex space-x-1 shrink-0">
+                                                                    <button onClick={() => editClick(item)} class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition" title="Sửa dữ liệu từ">
+                                                                        <Icon name="Edit3" className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                    <button onClick={() => deleteWord(item.id)} class="p-1.5 bg-slate-800/60 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition" title="Xóa từ vựng">
+                                                                        <Icon name="Trash2" className="w-3.5 h-3.5" />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Footer chân trang */}
+                    <footer class="bg-slate-900 border-t border-slate-800 px-6 py-2.5 text-center text-[10px] text-slate-500 font-medium tracking-wide shrink-0">
+                        VocabMaster Hub © 2026 Engine Edition. Built with React, Tailwind CSS and Lucide UI System Components.
+                    </footer>
+                </div>
+            );
         }
 
-        function handleBlockSelect(id) {
-            const block = gameBlocks.find(x => x.id === id);
-            const element = document.getElementById(`block-${id}`);
-
-            if (!selectedBlock) {
-                selectedBlock = block;
-                renderGameBoard(document.getElementById('main-content'));
-                return;
-            }
-
-            if (selectedBlock.id === block.id) {
-                selectedBlock = null;
-                renderGameBoard(document.getElementById('main-content'));
-                return;
-            }
-
-            if (selectedBlock.matchId === block.matchId && selectedBlock.type !== block.type) {
-                // Đúng cặp -> phá khối
-                gameScore += 20;
-                gameBlocks = gameBlocks.filter(x => x.matchId !== block.matchId);
-                selectedBlock = null;
-                renderGameBoard(document.getElementById('main-content'));
-            } else {
-                // Sai cặp -> Đổi màu đỏ + hiệu ứng rung lắc
-                gameScore = Math.max(0, gameScore - 5);
-                const firstElement = document.getElementById(`block-${selectedBlock.id}`);
-                
-                if (firstElement) firstElement.className = "h-16 p-2 border border-rose-400 bg-rose-600 text-white rounded-xl text-xs font-semibold text-center animate-shake";
-                if (element) element.className = "h-16 p-2 border border-rose-400 bg-rose-600 text-white rounded-xl text-xs font-semibold text-center animate-shake";
-                
-                selectedBlock = null;
-                setTimeout(() => {
-                    renderGameBoard(document.getElementById('main-content'));
-                }, 450);
-            }
-        }
-
-        // Khởi động ứng dụng ngay khi load trang
-        saveToStorage();
-        switchMode('deep-dive');
+        // Khởi tạo và render ứng dụng vào phần tử DOM #root
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
