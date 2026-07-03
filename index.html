@@ -1,0 +1,638 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  BookOpen, Layers, Award, Grid, Plus, Trash2, Edit3, Check, X,
+  ChevronLeft, ChevronRight, RefreshCw, Volume2, Save, Sparkles, HelpCircle
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// --- DATASET TỪ VỰNG GỐC ĐÃ ĐƯỢC TỰ ĐỘNG PHÂN TÍCH & BỔ SUNG ---
+const initialVocabulary = [
+  { id: 1, word: "tough", definitionVn: "Khó khăn, cứng rắn, bền bỉ", definitionEn: "Strong enough to withstand adverse conditions or rough handling", example: "The marathon was tough, but she finished it.", synonyms: "resilient, hard", antonyms: "weak, delicate", mnemonic: "Hãy nhớ đến 'thịt dai' (tough meat) cần sự bền bỉ để nhai!" },
+  { id: 2, word: "segregation", definitionVn: "Sự phân biệt đối xử, sự chia tách", definitionEn: "The action or state of setting someone or something apart from others", example: "The civil rights movement fought against racial segregation.", synonyms: "separation, isolation", antonyms: "integration, unification", mnemonic: "Segregation có gốc 'segre-' nghĩa là tách biệt ra." },
+  { id: 3, word: "lead the way", definitionVn: "Dẫn đường, tiên phong", definitionEn: "Go ahead of others to show the way or be a pioneer", example: "Our company aims to lead the way in green technology.", synonyms: "pioneer, guide", antonyms: "follow", mnemonic: "Lead (dẫn dắt) + The way (con đường) = Người mở đường." },
+  { id: 4, word: "vulnerable", definitionVn: "Dễ bị tổn thương", definitionEn: "Susceptible to physical or emotional attack or harm", example: "Children are the most vulnerable members of society.", synonyms: "helpless, exposed", antonyms: "resilient, protected", mnemonic: "Vulnerable giống như một 'vết thương' dễ bị chạm vào." },
+  { id: 5, word: "delicate", definitionVn: "Mỏng manh, tinh tế, dễ vỡ", definitionEn: "Very fine in texture or structure; easily broken or damaged", example: "The antique vase is extremely delicate.", synonyms: "fragile, subtle", antonyms: "tough, robust", mnemonic: "Đọc gần giống 'đẻ liền hai cái' -> rất mỏng manh và cần chăm sóc cẩn thận." },
+  { id: 6, word: "resilient", definitionVn: "Kiên cường, có khả năng phục hồi nhanh", definitionEn: "Able to withstand or recover quickly from difficult conditions", example: "The local economy proved remarkably resilient.", synonyms: "tough, bouncy", antonyms: "vulnerable, fragile", mnemonic: "Re (lại) + silent (im lặng) -> Gặp biến cố chỉ im lặng rồi tự đứng dậy phục hồi." },
+  { id: 7, word: "continuous collaboration", definitionVn: "Sự cộng tác liên tục", definitionEn: "The act of working together with someone constantly over time", example: "Success relies on continuous collaboration between teams.", synonyms: "constant teamwork", antonyms: "isolation", mnemonic: "Continuous (liên tục) + Collaboration (cộng tác)." },
+  { id: 8, word: "collective", definitionVn: "Tập thể, chung", definitionEn: "Done by people acting as a group; referring to all members", example: "It was a collective decision by all board members.", synonyms: "joint, shared", antonyms: "individual", mnemonic: "Giống từ Collect (thu thập) -> gom lại thành một tập thể." },
+  { id: 9, word: "detect", definitionVn: "Phát hiện, dò tìm", definitionEn: "Discover or identify the presence or existence of something", example: "The security system can detect any unauthorized entry.", synonyms: "discover, find", antonyms: "hide, ignore", mnemonic: "Thám tử (detective) là người đi 'detect' các manh mối." },
+  { id: 10, word: "freeze", definitionVn: "Đóng băng", definitionEn: "Turn into ice or another solid as a result of extreme cold", example: "Water will freeze at 0 degrees Celsius.", synonyms: "solidify", antonyms: "melt", mnemonic: "Tủ đông trong nhà gọi là freezer." },
+  { id: 11, word: "melt", definitionVn: "Tan chảy", definitionEn: "Make or become liquefied by heating", example: "The ice cream began to melt in the hot sun.", synonyms: "dissolve", antonyms: "freeze", mnemonic: "Melt khiến ta nghĩ đến kẹo chocolate 'tan chảy' trong miệng." },
+  { id: 12, word: "condense", definitionVn: "Ngưng tụ, làm đặc lại", definitionEn: "Change from a gas to a liquid; express in fewer words", example: "Steam condenses into water when it cools down.", synonyms: "compress, thicken", antonyms: "evaporate", mnemonic: "Sữa đặc cô đặc thường gọi là 'condensed milk'." },
+  { id: 13, word: "evaporate", definitionVn: "Bay hơi, bốc hơi", definitionEn: "Turn from liquid into vapor", example: "The puddles of water evaporate quickly under the sun.", synonyms: "vanish, vaporize", antonyms: "condense", mnemonic: "E- (ra ngoài) + vapor (hơi nước) -> hơi nước bay ra ngoài." },
+  { id: 14, word: "concerning symptom", definitionVn: "Triệu chứng đáng lo ngại", definitionEn: "A physical or mental feature indicating a condition that causes anxiety", example: "A chronic cough is a concerning symptom that requires a doctor visit.", synonyms: "alarming sign", antonyms: "reassuring sign", mnemonic: "Concerning (đáng lo) + Symptom (triệu chứng bệnh)." },
+  { id: 15, word: "thrive", definitionVn: "Phát triển thịnh vượng, khoẻ mạnh", definitionEn: "Grow or develop well or vigorously", example: "The plants thrive in this warm, sunny climate.", synonyms: "flourish, prosper", antonyms: "fail, wither", mnemonic: "Thrive nghe gần giống 'Strive' (phấn đấu) để 'thịnh vượng'." },
+  { id: 16, word: "carry on", definitionVn: "Tiếp tục làm gì đó", definitionEn: "Continue an activity or task; keep doing something", example: "Please carry on with your work while I am away.", synonyms: "continue, keep doing", antonyms: "stop, quit", mnemonic: "Xách (carry) nó lên và đi tiếp (on) -> tiếp tục." },
+  { id: 17, word: "check up on", definitionVn: "Kiểm tra xem ai đó đang làm đúng việc không", definitionEn: "Make sure that someone is doing what they should be doing", example: "My boss likes to check up on us every afternoon.", synonyms: "monitor, inspect", antonyms: "ignore", mnemonic: "Check (kiểm tra) + Up on (phía trên) -> giám sát từ trên xuống." },
+  { id: 18, word: "keep one's fingers on the pulse", definitionVn: "Nắm bắt kịp thời tình hình/xu hướng", definitionEn: "Keep track of or remain aware of the latest trends or developments", example: "As a marketer, you must keep your fingers on the pulse.", synonyms: "keep track of, stay updated", antonyms: "out of touch", mnemonic: "Đặt tay lên mạch đập (pulse) để biết tim đập ra sao -> bắt kịp nhịp độ." },
+  { id: 19, word: "assess", definitionVn: "Đánh giá, ước định", definitionEn: "Evaluate or estimate the nature, ability, or quality of", example: "We need to assess the risks before making a decision.", synonyms: "evaluate, appraise", antonyms: "guess", mnemonic: "Học sinh làm bài 'assignment' để giáo viên 'assess' (đánh giá)." },
+  { id: 20, word: "insight", definitionVn: "Cái nhìn sâu sắc, sự hiểu biết thấu đáo", definitionEn: "A deep understanding of a person or thing", example: "The research provides valuable insight into consumer behavior.", synonyms: "understanding, perception", antonyms: "ignorance", mnemonic: "In (vào trong) + Sight (tầm nhìn) -> nhìn thấu vào bên trong bản chất." },
+  { id: 21, word: "hand in hand", definitionVn: "Song hành, gắn liền với nhau", definitionEn: "Closely associated; together", example: "Wealth and power often go hand in hand.", synonyms: "together, jointly", antonyms: "separately", mnemonic: "Tay trong tay -> Luôn đi cùng nhau." },
+  { id: 22, word: "indicator", definitionVn: "Chỉ số, dấu hiệu", definitionEn: "A trend or fact that indicates the state or level of something", example: "Economic growth is a key indicator of a country's health.", synonyms: "sign, signal", antonyms: "counter-evidence", mnemonic: "Xem kim chỉ mét ở xe máy/ô tô chính là các indicator." },
+  { id: 23, word: "fluctuation", definitionVn: "Sự biến động, dao động", definitionEn: "An irregular rising and falling in number or amount", example: "The fluctuation in gold prices makes investors nervous.", synonyms: "variation, shift", antonyms: "stability, constancy", mnemonic: "Đọc giống 'phập phồng' -> lúc lên lúc xuống không ổn định." },
+  { id: 24, word: "safeguard", definitionVn: "Bảo vệ, che chở", definitionEn: "Protect from harm or damage with an appropriate measure", example: "The law was passed to safeguard consumer rights.", synonyms: "protect, defend", antonyms: "endanger, imperil", mnemonic: "Safe (an toàn) + Guard (bảo vệ) -> lá chắn bảo vệ." },
+  { id: 25, word: "cherish", definitionVn: "Trân trọng, yêu thương", definitionEn: "Hold something dear; treat with affection and tenderness", example: "I will always cherish the memories of our childhood.", synonyms: "treasure, value", antonyms: "neglect, despise", mnemonic: "Gần giống 'cherry' -> quả cherry ngọt ngào cần được nâng niu." },
+  { id: 26, word: "symphony", definitionVn: "Bản nhạc giao hưởng", definitionEn: "An elaborate musical composition for full orchestra", example: "Beethoven's Fifth Symphony is globally famous.", synonyms: "harmony, orchestra", antonyms: "cacophony", mnemonic: "Sym (cùng nhau) + phony (âm thanh) -> phối hợp âm thanh lại." },
+  { id: 27, word: "unify", definitionVn: "Thống nhất, hợp nhất", definitionEn: "Make or become united, uniform, or whole", example: "The new leader hopes to unify the split country.", synonyms: "unite, merge", antonyms: "divide, segregate", mnemonic: "Uni- có nghĩa là một (như trong từ uniform, universe)." },
+  { id: 28, word: "remarkable", definitionVn: "Đáng chú ý, xuất sắc", definitionEn: "Worthy of attention; striking or extraordinary", example: "She has made a remarkable recovery from her illness.", synonyms: "extraordinary, outstanding", antonyms: "ordinary, average", mnemonic: "Remark (nhận xét) + able (có thể) -> xuất sắc tới mức ai cũng phải bàn tán." },
+  { id: 29, word: "enhance", definitionVn: "Nâng cao, cải thiện", definitionEn: "Intensify, increase, or further improve the quality or value of", example: "You can enhance your skills by practicing every day.", synonyms: "improve, boost", antonyms: "worsen, diminish", mnemonic: "Thêm 'hương vị' (enhance) vào món ăn để làm nó ngon hơn." },
+  { id: 30, word: "carbon footprint", definitionVn: "Vết carbon, lượng khí thải carbon", definitionEn: "The amount of carbon dioxide released into the atmosphere due to one's activities", example: "We can reduce our carbon footprint by cycling to work.", synonyms: "CO2 emission", antonyms: "eco-friendly score", mnemonic: "Dấu chân (footprint) làm bằng than khí thải để lại trên Trái Đất." },
+  { id: 31, word: "processed foods", definitionVn: "Thực phẩm đóng hộp/đã qua chế biến", definitionEn: "Foods that have been altered from their natural state for safety or convenience", example: "Processed foods are often high in salt and preservatives.", synonyms: "packaged food", antonyms: "fresh foods", mnemonic: "Process (quy trình) + Foods -> thức ăn công nghiệp đi qua nhà máy." }
+];
+
+// --- HÀM TỰ ĐỘNG BỔ SUNG DỮ LIỆU KHI THÊM TỪ MỚI CHỈ CÓ TIẾNG ANH ---
+const autoGenerateData = (word) => {
+  return {
+    id: Date.now() + Math.random(),
+    word: word.trim(),
+    definitionVn: "Đã thêm tự động - Vui lòng chỉnh sửa nghĩa",
+    definitionEn: `The meaning and concept related to "${word.trim()}"`,
+    example: `This is an auto-generated example for "${word.trim()}".`,
+    synonyms: "N/A",
+    antonyms: "N/A",
+    mnemonic: "Hãy tự tạo một liên tưởng thú vị cho từ này!"
+  };
+};
+
+export default function VocabularyApp() {
+  const [vocabList, setVocabList] = useState(() => {
+    const saved = localStorage.getItem('custom_vocab');
+    return saved ? JSON.parse(saved) : initialVocabulary;
+  });
+
+  const [currentMode, setCurrentMode] = useState('deep-dive'); // deep-dive, flashcard, quiz, block-blast, manage
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  // Lưu Data vào LocalStorage
+  useEffect(() => {
+    localStorage.setItem('custom_vocab', JSON.stringify(vocabList));
+  }, [vocabList]);
+
+  // Đồng bộ reset vị trí khi chuyển chế độ
+  useEffect(() => {
+    setCurrentIndex(0);
+    setIsFlipped(false);
+  }, [currentMode]);
+
+  return (
+    <div className="w-screen h-screen flex bg-slate-900 text-slate-100 overflow-hidden font-sans">
+      {/* SIDEBAR NAVIGATION */}
+      <nav className="w-64 bg-slate-950 border-r border-slate-800 flex flex-col justify-between p-4">
+        <div>
+          <div className="flex items-center gap-3 px-2 py-4 mb-6 border-b border-slate-800">
+            <Sparkles className="w-8 h-8 text-indigo-400 animate-pulse" />
+            <div>
+              <h1 className="font-black text-xl tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
+                VOCAB MASTER
+              </h1>
+              <p className="text-xs text-slate-400">Học thông minh, nhớ siêu đỉnh</p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <button 
+              onClick={() => setCurrentMode('deep-dive')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${currentMode === 'deep-dive' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'}`}
+            >
+              <BookOpen className="w-5 h-5" /> Deep Dive (Học Sâu)
+            </button>
+            <button 
+              onClick={() => setCurrentMode('flashcard')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${currentMode === 'flashcard' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'}`}
+            >
+              <Layers className="w-5 h-5" /> Flashcard 3D
+            </button>
+            <button 
+              onClick={() => setCurrentMode('quiz')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${currentMode === 'quiz' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'}`}
+            >
+              <Award className="w-5 h-5" /> Trắc Nghiệm Quiz
+            </button>
+            <button 
+              onClick={() => setCurrentMode('block-blast')}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-sm transition-all duration-200 ${currentMode === 'block-blast' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-100'}`}
+            >
+              <Grid className="w-5 h-5" /> Block Blast Game
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <button 
+            onClick={() => setCurrentMode('manage')}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 border border-slate-800 rounded-xl font-medium text-sm transition-all duration-200 ${currentMode === 'manage' ? 'bg-cyan-600 border-cyan-600 text-white' : 'bg-slate-900/50 text-slate-300 hover:bg-slate-900 hover:text-white'}`}
+          >
+            <Plus className="w-4 h-4" /> Quản Lý Bài Học ({vocabList.length})
+          </button>
+        </div>
+      </nav>
+
+      {/* WORKSPACE AREA */}
+      <main className="flex-1 flex flex-col min-w-0 bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/20 p-6 overflow-hidden relative">
+        <AnimatePresence mode="wait">
+          {currentMode === 'deep-dive' && <DeepDiveMode vocabList={vocabList} index={currentIndex} setIndex={setCurrentIndex} />}
+          {currentMode === 'flashcard' && <FlashcardMode vocabList={vocabList} index={currentIndex} setIndex={setCurrentIndex} isFlipped={isFlipped} setIsFlipped={setIsFlipped} />}
+          {currentMode === 'quiz' && <QuizMode vocabList={vocabList} />}
+          {currentMode === 'block-blast' && <BlockBlastGame vocabList={vocabList} />}
+          {currentMode === 'manage' && <ManageMode vocabList={vocabList} setVocabList={setVocabList} />}
+        </AnimatePresence>
+      </main>
+    </div>
+  );
+}
+
+// ==========================================
+// 1. CHẾ ĐỘ DEEP DIVE (HỌC SÂU CHI TIẾT)
+// ==========================================
+function DeepDiveMode({ vocabList, index, setIndex }) {
+  if (vocabList.length === 0) return <EmptyState />;
+  const current = vocabList[index];
+
+  const handleSpeak = (text) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    window.speechSynthesis.speak(utterance);
+  };
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -15 }}
+      className="h-full flex flex-col justify-between max-w-4xl mx-auto w-full"
+    >
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold flex items-center gap-2"><BookOpen className="text-indigo-400" /> Deep Dive Study</h2>
+        <span className="text-xs font-mono bg-slate-800 px-3 py-1.5 rounded-full text-slate-400">Từ số {index + 1} / {vocabList.length}</span>
+      </div>
+
+      <div className="flex-1 bg-slate-800/40 border border-slate-800 rounded-2xl p-6 backdrop-blur-md overflow-y-auto space-y-5 shadow-xl scrollbar-thin">
+        <div className="flex justify-between items-start border-b border-slate-800/80 pb-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-4xl font-extrabold tracking-tight text-white">{current.word}</h1>
+              <button onClick={() => handleSpeak(current.word)} className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors">
+                <Volume2 className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-indigo-300 font-semibold text-lg mt-1">{current.definitionVn}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800/50">
+            <h4 className="text-xs uppercase tracking-wider text-slate-400 font-bold mb-1">English Definition</h4>
+            <p className="text-slate-200 text-sm leading-relaxed">{current.definitionEn}</p>
+          </div>
+
+          <div className="bg-slate-900/60 p-4 rounded-xl border border-slate-800/50">
+            <h4 className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-1">💡 Mẹo Tư Duy / Cách Nhớ</h4>
+            <p className="text-amber-100/90 text-sm leading-relaxed italic">{current.mnemonic}</p>
+          </div>
+        </div>
+
+        <div className="bg-indigo-950/20 border border-indigo-500/10 p-4 rounded-xl">
+          <h4 className="text-xs uppercase tracking-wider text-indigo-400 font-bold mb-1">Ví dụ thực tế</h4>
+          <p className="text-slate-100 font-medium text-base">"{current.example}"</p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-emerald-950/20 border border-emerald-500/10 p-3 rounded-xl">
+            <span className="text-xs font-bold text-emerald-400 block mb-1">Từ đồng nghĩa (Synonyms)</span>
+            <p className="text-slate-300 text-sm">{current.synonyms || "---"}</p>
+          </div>
+          <div className="bg-rose-950/20 border border-rose-500/10 p-3 rounded-xl">
+            <span className="text-xs font-bold text-rose-400 block mb-1">Từ trái nghĩa (Antonyms)</span>
+            <p className="text-slate-300 text-sm">{current.antonyms || "---"}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex gap-4 mt-4">
+        <button 
+          disabled={index === 0}
+          onClick={() => setIndex(prev => prev - 1)}
+          className="flex-1 bg-slate-800 border border-slate-700 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all"
+        >
+          <ChevronLeft className="w-5 h-5" /> TRƯỚC ĐÓ
+        </button>
+        <button 
+          disabled={index === vocabList.length - 1}
+          onClick={() => setIndex(prev => prev + 1)}
+          className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-600/20"
+        >
+          TIẾP THEO <ChevronRight className="w-5 h-5" />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ==========================================
+// 2. CHẾ ĐỘ FLASHCARD (THẺ LẬT 3D)
+// ==========================================
+function FlashcardMode({ vocabList, index, setIndex, isFlipped, setIsFlipped }) {
+  if (vocabList.length === 0) return <EmptyState />;
+  const current = vocabList[index];
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="h-full flex flex-col justify-between max-w-xl mx-auto w-full"
+    >
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-xl font-bold flex items-center gap-2"><Layers className="text-indigo-400" /> Flashcard 3D</h2>
+        <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400">{index + 1} / {vocabList.length}</span>
+      </div>
+
+      {/* Thẻ Lật 3D */}
+      <div 
+        className="flex-1 cursor-pointer perspective-1000 my-4"
+        onClick={() => setIsFlipped(!isFlipped)}
+      >
+        <div className={`relative w-full h-full transition-transform duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
+          
+          {/* MẶT TRƯỚC */}
+          <div className="absolute inset-0 backface-hidden bg-gradient-to-b from-indigo-900 to-slate-800 border-2 border-indigo-500/40 rounded-3xl flex flex-col items-center justify-center p-8 shadow-2xl text-center">
+            <span className="text-xs uppercase tracking-widest text-indigo-300 font-bold bg-indigo-950/80 px-4 py-1.5 rounded-full border border-indigo-500/20 mb-6">MẶT TRƯỚC</span>
+            <h1 className="text-5xl font-black tracking-tight text-white drop-shadow-md">{current.word}</h1>
+            <p className="text-slate-400 text-sm mt-6 flex items-center gap-1"><RefreshCw className="w-4 h-4 animate-spin-slow" /> Click để xem nghĩa</p>
+          </div>
+
+          {/* MẶT SAU */}
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-slate-800 border-2 border-emerald-500/40 rounded-3xl flex flex-col items-center justify-center p-8 shadow-2xl text-center">
+            <span className="text-xs uppercase tracking-widest text-emerald-400 font-bold bg-emerald-950/80 px-4 py-1.5 rounded-full border border-emerald-500/20 mb-4">MẶT SAU</span>
+            <h2 className="text-3xl font-bold text-emerald-400 mb-2">{current.definitionVn}</h2>
+            <div className="w-16 h-0.5 bg-slate-700 my-4"></div>
+            <p className="text-slate-300 italic text-base px-4">"{current.definitionEn}"</p>
+            <p className="text-slate-500 text-xs mt-6">Click để quay lại mặt trước</p>
+          </div>
+
+        </div>
+      </div>
+
+      <div className="flex gap-4">
+        <button 
+          onClick={() => { setIsFlipped(false); setIndex(prev => Math.max(0, prev - 1)); }}
+          className="flex-1 bg-slate-800 border border-slate-700 py-3 rounded-xl font-medium flex items-center justify-center gap-1"
+        >
+          <ChevronLeft className="w-4 h-4" /> TRƯỚC
+        </button>
+        <button 
+          onClick={() => { setIsFlipped(false); setIndex(prev => Math.min(vocabList.length - 1, prev + 1)); }}
+          className="flex-1 bg-indigo-600 py-3 rounded-xl font-medium flex items-center justify-center gap-1"
+        >
+          KẾ TIẾP <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ==========================================
+// 3. CHẾ ĐỘ TRẮC NGHIỆM (QUIZ 10 CÂU)
+// ==========================================
+function QuizMode({ vocabList }) {
+  if (vocabList.length < 4) return <div className="text-center p-8 text-slate-400">Cần ít nhất 4 từ để tạo bài trắc nghiệm.</div>;
+
+  const [quizData, setQuizData] = useState([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [selectedAns, setSelectedAns] = useState(null);
+  const [score, setScore] = useState(0);
+  const [isFinished, setIsFinished] = useState(false);
+
+  // Tạo đề thi 10 câu ngẫu nhiên
+  const generateQuiz = () => {
+    const shuffled = [...vocabList].sort(() => 0.5 - Math.random()).slice(0, 10);
+    const questions = shuffled.map(item => {
+      const wrongs = vocabList.filter(v => v.id !== item.id).sort(() => 0.5 - Math.random()).slice(0, 3);
+      const options = [...wrongs, item].sort(() => 0.5 - Math.random());
+      return { question: item.definitionVn, correct: item.word, options };
+    });
+    setQuizData(questions);
+    setCurrentIdx(0);
+    setSelectedAns(null);
+    setScore(0);
+    setIsFinished(false);
+  };
+
+  useEffect(() => { generateQuiz(); }, [vocabList]);
+
+  if (quizData.length === 0) return null;
+
+  if (isFinished) {
+    return (
+      <div className="max-w-md mx-auto text-center py-12 bg-slate-800/50 p-8 border border-slate-800 rounded-3xl">
+        <Award className="w-20 h-20 text-yellow-400 mx-auto mb-4 animate-bounce" />
+        <h2 className="text-3xl font-black text-white">HOÀN THÀNH!</h2>
+        <p className="text-slate-400 mt-2">Kết quả của bạn đạt được:</p>
+        <div className="text-5xl font-extrabold text-indigo-400 my-6">{score} / {quizData.length}</div>
+        <button onClick={generateQuiz} className="w-full bg-indigo-600 hover:bg-indigo-500 font-bold py-3.5 rounded-xl transition-all">
+          LÀM LẠI BÀI MỚI
+        </button>
+      </div>
+    );
+  }
+
+  const currentQuiz = quizData[currentIdx];
+
+  const handleAnswerClick = (optionWord) => {
+    if (selectedAns !== null) return;
+    setSelectedAns(optionWord);
+    if (optionWord === currentQuiz.correct) setScore(p => p + 1);
+    
+    setTimeout(() => {
+      if (currentIdx < quizData.length - 1) {
+        setCurrentIdx(p => p + 1);
+        setSelectedAns(null);
+      } else {
+        setIsFinished(true);
+      }
+    }, 1200);
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto w-full h-full flex flex-col justify-between">
+      <div className="flex justify-between items-center mb-4">
+        <span className="text-sm font-semibold text-slate-400">Câu {currentIdx + 1} / {quizData.length}</span>
+        <span className="text-sm font-semibold text-emerald-400">Điểm: {score}</span>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-center">
+        <div className="bg-slate-800/80 border border-slate-700/50 rounded-2xl p-8 text-center shadow-xl mb-6">
+          <HelpCircle className="w-8 h-8 text-indigo-400 mx-auto mb-3" />
+          <h2 className="text-xl md:text-2xl font-bold text-slate-100">{currentQuiz.question}</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {currentQuiz.options.map((opt, i) => {
+            let btnStyle = "bg-slate-800/60 border-slate-700 text-slate-200 hover:bg-slate-700/80";
+            if (selectedAns !== null) {
+              if (opt.word === currentQuiz.correct) btnStyle = "bg-emerald-600 border-emerald-500 text-white";
+              else if (selectedAns === opt.word) btnStyle = "bg-rose-600 border-rose-500 text-white";
+              else btnStyle = "bg-slate-800/20 border-slate-800 text-slate-600 opacity-50";
+            }
+
+            return (
+              <button
+                key={i}
+                disabled={selectedAns !== null}
+                onClick={() => handleAnswerClick(opt.word)}
+                className={`border-2 p-4 rounded-xl font-bold text-base text-left transition-all flex items-center justify-between ${btnStyle}`}
+              >
+                <span>{opt.word}</span>
+                {selectedAns !== null && opt.word === currentQuiz.correct && <Check className="w-5 h-5" />}
+                {selectedAns === opt.word && opt.word !== currentQuiz.correct && <X className="w-5 h-5" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="h-6"></div>
+    </div>
+  );
+}
+
+// ==========================================
+// 4. BLOCK BLAST GAME (MINIGAME CẶP TỪ)
+// ==========================================
+function BlockBlastGame({ vocabList }) {
+  if (vocabList.length < 6) return <div className="text-center p-8 text-slate-400">Cần ít nhất 6 từ vựng để tạo game.</div>;
+
+  const [blocks, setBlocks] = useState([]);
+  const [selectedBlock, setSelectedBlock] = useState(null);
+  const [score, setScore] = useState(0);
+  const [wrongId, setWrongId] = useState(null);
+
+  const initGame = () => {
+    const selected = [...vocabList].sort(() => 0.5 - Math.random()).slice(0, 6);
+    let pool = [];
+    selected.forEach(item => {
+      pool.push({ id: `w-${item.id}`, matchId: item.id, val: item.word, type: 'word' });
+      pool.push({ id: `d-${item.id}`, matchId: item.id, val: item.definitionVn, type: 'def' });
+    });
+    setBlocks(pool.sort(() => 0.5 - Math.random()));
+    setScore(0);
+    setSelectedBlock(null);
+  };
+
+  useEffect(() => { initGame(); }, [vocabList]);
+
+  const handleBlockClick = (block) => {
+    if (!selectedBlock) {
+      setSelectedBlock(block);
+      return;
+    }
+
+    if (selectedBlock.id === block.id) {
+      setSelectedBlock(null);
+      return;
+    }
+
+    if (selectedBlock.matchId === block.matchId && selectedBlock.type !== block.type) {
+      // Đúng cặp -> Triệt tiêu khối
+      setScore(s => s + 20);
+      setBlocks(b => b.filter(item => item.matchId !== block.matchId));
+      setSelectedBlock(null);
+    } else {
+      // Sai cặp -> Rung lắc và trừ điểm
+      setScore(s => Math.max(0, s - 5));
+      setWrongId(block.id);
+      const prevId = selectedBlock.id;
+      setWrongId(`${block.id}_${prevId}`);
+      setSelectedBlock(null);
+      setTimeout(() => setWrongId(null), 500);
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto w-full h-full flex flex-col justify-between">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h2 className="text-xl font-bold flex items-center gap-2 text-cyan-400"><Grid /> Block Blast</h2>
+          <p className="text-xs text-slate-400">Ghép đúng từ với nghĩa tương ứng để phá khối</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="bg-slate-800 text-cyan-400 px-4 py-1.5 rounded-full font-bold">SCORE: {score}</span>
+          <button onClick={initGame} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300"><RefreshCw className="w-4 h-4" /></button>
+        </div>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center">
+        {blocks.length === 0 ? (
+          <div className="text-center bg-slate-800/50 p-8 rounded-2xl border border-slate-700">
+            <Award className="w-16 h-16 text-yellow-400 mx-auto mb-2" />
+            <h3 className="text-2xl font-bold text-white">Xuất Sắc!</h3>
+            <p className="text-slate-400 mb-4">Bạn đã xoá sạch tất cả các khối.</p>
+            <button onClick={initGame} className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 rounded-xl font-bold text-sm">CHƠI LẠI</button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 w-full max-h-[70vh] overflow-y-auto p-2">
+            {blocks.map(block => {
+              const isSelected = selectedBlock?.id === block.id;
+              const isWrong = wrongId?.includes(block.id);
+              
+              return (
+                <button
+                  key={block.id}
+                  onClick={() => handleBlockClick(block)}
+                  className={`h-24 p-3 rounded-xl border text-sm font-semibold flex items-center justify-center text-center transition-all duration-200 shadow-md select-none leading-snug
+                    ${isSelected ? 'bg-indigo-600 border-indigo-400 text-white scale-105 ring-2 ring-indigo-400' : ''}
+                    ${isWrong ? 'bg-rose-600 border-rose-400 text-white animate-shake' : ''}
+                    ${!isSelected && !isWrong ? 'bg-slate-800/70 border-slate-700 hover:bg-slate-700/80 text-slate-200' : ''}
+                  `}
+                >
+                  {block.val}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <div className="h-4"></div>
+    </div>
+  );
+}
+
+// ==========================================
+// 5. CÔNG CỤ QUẢN LÝ BÀI HỌC (THÊM, SỬA, XOÁ)
+// ==========================================
+function ManageMode({ vocabList, setVocabList }) {
+  const [singleWord, setSingleWord] = useState('');
+  const [bulkWords, setBulkWords] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ word: '', definitionVn: '' });
+
+  // Thêm 1 từ
+  const handleAddSingle = (e) => {
+    e.preventDefault();
+    if (!singleWord.trim()) return;
+    const newWord = autoGenerateData(singleWord);
+    setVocabList([newWord, ...vocabList]);
+    setSingleWord('');
+  };
+
+  // Thêm nhiều từ cùng lúc (Phân tách bằng dấu xuống dòng hoặc phẩy)
+  const handleAddBulk = (e) => {
+    e.preventDefault();
+    if (!bulkWords.trim()) return;
+    const lines = bulkWords.split(/[\n,]+/).map(w => w.trim()).filter(w => w.length > 0);
+    const newWords = lines.map(w => autoGenerateData(w));
+    setVocabList([...newWords, ...vocabList]);
+    setBulkWords('');
+  };
+
+  // Xoá từ
+  const handleDelete = (id) => {
+    setVocabList(vocabList.filter(v => v.id !== id));
+  };
+
+  // Kích hoạt chế độ sửa từ nhanh
+  const startEdit = (item) => {
+    setEditingId(item.id);
+    setEditForm({ word: item.word, definitionVn: item.definitionVn });
+  };
+
+  // Lưu thông tin chỉnh sửa
+  const saveEdit = (id) => {
+    setVocabList(vocabList.map(v => v.id === id ? { ...v, word: editForm.word, definitionVn: editForm.formDefVn || editForm.definitionVn } : v));
+    setEditingId(null);
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full flex flex-col w-full max-w-5xl mx-auto overflow-hidden">
+      <h2 className="text-xl font-bold mb-4 flex items-center gap-2"><Edit3 className="text-cyan-400" /> Quản Lý Dữ Liệu Từ Vựng</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5 shrink-0">
+        {/* Form Thêm 1 Từ */}
+        <form onSubmit={handleAddSingle} className="bg-slate-800/40 p-4 border border-slate-800 rounded-xl flex flex-col justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-white mb-2">Thêm Một Từ Mới</h3>
+            <input 
+              type="text" value={singleWord} onChange={e => setSingleWord(e.target.value)}
+              placeholder="Nhập từ Tiếng Anh..." 
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 mb-2"
+            />
+          </div>
+          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-1"><Plus className="w-4 h-4"/> THÊM TỪ</button>
+        </form>
+
+        {/* Form Thêm Nhiều Từ Ngẫu Nhiên */}
+        <form onSubmit={handleAddBulk} className="bg-slate-800/40 p-4 border border-slate-800 rounded-xl md:col-span-2 flex flex-col justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-white mb-1">Thêm Hàng Loạt</h3>
+            <p className="text-slate-400 text-xs mb-2">Mỗi từ cách nhau bằng dấu phẩy `,` hoặc xuống dòng. Hệ thống sẽ tự động phân tích bổ sung dữ liệu mẫu.</p>
+            <textarea 
+              rows={2} value={bulkWords} onChange={e => setBulkWords(e.target.value)}
+              placeholder="Ví dụ: innovation, sustainable, artificial intelligence"
+              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 mb-2 resize-none"
+            />
+          </div>
+          <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2 rounded-lg text-xs flex items-center justify-center gap-1"><Plus className="w-4 h-4"/> THÊM HÀNG LOẠT</button>
+        </form>
+      </div>
+
+      {/* Danh sách quản lý từ vựng hiển thị dạng Table */}
+      <div className="flex-1 bg-slate-800/20 border border-slate-800/80 rounded-xl overflow-hidden flex flex-col min-h-0">
+        <div className="overflow-y-auto flex-1 scrollbar-thin">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider sticky top-0 z-10">
+              <tr>
+                <th className="p-3 pl-4">Từ Vựng (English)</th>
+                <th className="p-3">Nghĩa dịch (Tiếng Việt)</th>
+                <th className="p-3 text-right pr-4">Hành Động</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800 text-sm">
+              {vocabList.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
+                  <td className="p-3 pl-4 font-semibold text-white">
+                    {editingId === item.id ? (
+                      <input 
+                        type="text" value={editForm.word} 
+                        onChange={e => setEditForm({ ...editForm, word: e.target.value })}
+                        className="bg-slate-900 border border-indigo-500 rounded px-2 py-1 text-slate-100 font-medium w-full max-w-xs"
+                      />
+                    ) : item.word}
+                  </td>
+                  <td className="p-3 text-slate-300">
+                    {editingId === item.id ? (
+                      <input 
+                        type="text" defaultValue={item.definitionVn}
+                        onChange={e => setEditForm({ ...editForm, formDefVn: e.target.value })}
+                        className="bg-slate-900 border border-indigo-500 rounded px-2 py-1 text-slate-100 w-full max-w-sm"
+                      />
+                    ) : item.definitionVn}
+                  </td>
+                  <td className="p-3 text-right pr-4">
+                    {editingId === item.id ? (
+                      <div className="flex gap-1 justify-end">
+                        <button onClick={() => saveEdit(item.id)} className="p-1 text-emerald-400 hover:bg-emerald-500/10 rounded"><Save className="w-4 h-4"/></button>
+                        <button onClick={() => setEditingId(null)} className="p-1 text-slate-400 hover:bg-slate-500/10 rounded"><X className="w-4 h-4"/></button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1 justify-end">
+                        <button onClick={() => startEdit(item)} className="p-1.5 text-indigo-400 hover:bg-indigo-500/10 rounded-lg"><Edit3 className="w-4 h-4"/></button>
+                        <button onClick={() => handleDelete(item.id)} className="p-1.5 text-rose-400 hover:bg-rose-500/10 rounded-lg"><Trash2 className="w-4 h-4"/></button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// --- STATE TRỐNG KHI KHÔNG CÓ TỪ VỰNG ---
+function EmptyState() {
+  return (
+    <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 p-8">
+      <BookOpen className="w-12 h-12 mb-2 text-slate-600" />
+      <p className="text-base font-semibold">Danh sách từ vựng trống.</p>
+      <p className="text-xs text-slate-500 mt-0.5">Vui lòng quay lại tab Quản Lý để thêm từ mới.</p>
+    </div>
+  );
+}
